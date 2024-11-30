@@ -40,17 +40,38 @@ io.engine.use((req, res, next) => {
     sessionMiddleware(req, res, next);
 });
 
+const triviaQuestions = [
+    { question: 'What is the capital of France?', options: ['Paris', 'London', 'Berlin', 'Madrid'], answer: 'Paris' },
+    { question: 'Which planet is closest to the sun?', options: ['Venus', 'Mars', 'Mercury', 'Earth'], answer: 'Mercury' },
+    { question: 'Who wrote "Hamlet"?', options: ['Shakespeare', 'Dickens', 'Hemingway', 'Tolkien'], answer: 'Shakespeare' },
+];
+
+let currentQuestionIndex = 0;
+let gameTimer = null;
+
 // Handle Socket.IO events
 io.on('connection', (socket) => {
     console.log('Session on connection:', socket.request.session);
+
+    if (currentQuestionIndex === 0) {
+        startGame();
+    }
     const username = socket.request.session.username;
     if (!username) {
         console.log('Connection without username, disconnecting socket');
         socket.disconnect();
         return;
     }
-
     users[socket.id] = username;
+    socket.on('get-username', (cb) => {
+        cb(username);
+    })
+    
+    socket.on('submit-answer', (answer) => {
+        const currentQuestion = triviaQuestions[currentQuestionIndex];
+        const isCorrect = answer === currentQuestion.answer;
+        console.log(`Player ${socket.id} answered ${answer}: ${isCorrect ? 'Correct' : 'Incorrect'}`);
+    });
     socket.on('send-message', (message) => {
         const name = users[socket.id];
         console.log(`${name}: ${message}`);
@@ -58,6 +79,39 @@ io.on('connection', (socket) => {
     });
 });
 
+const startGame = () => {
+    sendQuestion();
+};
+
+const sendQuestion = () => {
+    if (currentQuestionIndex >= triviaQuestions.length) {
+        console.log('Game over!');
+        io.emit('game-over');
+        return;
+    }
+
+    const currentQuestion = triviaQuestions[currentQuestionIndex];
+    io.emit('new-question', currentQuestion);
+
+    let timeLeft = 15;
+    gameTimer = setInterval(() => {
+        timeLeft--;
+        io.emit('update-timer', timeLeft);
+
+        if (timeLeft <= 0) {
+            clearInterval(gameTimer);
+            io.emit('question-ended', {
+                correctAnswer: currentQuestion.answer,
+            });
+
+            // Move to the next question after a 5-second pause
+            setTimeout(() => {
+                currentQuestionIndex++;
+                sendQuestion();
+            }, 5000);
+        }
+    }, 1000);
+};
 // Start the server
 server.listen(3000, () => {
     console.log('Server listening on http://localhost:3000');
