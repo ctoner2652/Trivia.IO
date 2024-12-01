@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <title>Testing Chat</title>
+</head>
+<style>
+    body {
+        margin: 0 auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        width: 90%;
+        max-width: 1200px;
+    }
+
+    #main-container {
+        display: flex;
+        flex-direction: row; 
+        justify-content: space-between; 
+        align-items: flex-start; 
+        width: 100%;
+        height: 100%;
+    }
+
+    #quiz-container {
+        flex: 2;
+        border: 1px solid black;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+
+    #chat-container {
+        flex: 1; 
+        border: 1px solid black;
+        padding: 20px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column; 
+        height: 100%; 
+    }
+
+    #message-container {
+        flex-grow: 1; 
+        overflow-y: auto; 
+        border: 1px solid black;
+        margin-bottom: 10px;
+        padding: 10px;
+        background-color: #f9f9f9;
+    }
+
+    #chat-form {
+        display: flex;
+        gap: 10px; 
+    }
+
+    #chat-input {
+        flex-grow: 1; 
+        padding: 5px;
+    }
+
+    #question {
+        margin-bottom: 20px;
+        font-size: 24px;
+    }
+
+    .answer-choice {
+        display: block; 
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 10px;
+        font-size: 18px;
+        cursor: pointer;
+    }
+
+    .answer-choice:hover {
+        background-color: #ddd;
+    }
+</style>
+
+<body>
+    <div id="main-container">
+        <div id="quiz-container">
+            <h2 id="question">What is the capital of France?</h2>
+            <p id="feedback" style="font-weight: bold; margin-top: 10px;"></p>
+            <form id="answer-form">
+                <button class="answer-choice">A: Paris</button>
+                <button class="answer-choice">B: London</button>
+                <button class="answer-choice">C: Berlin</button>
+                <button class="answer-choice">D: Madrid</button>
+            </form>
+        </div>
+        <div id="chat-container">
+            <div id="message-container">
+            </div>
+            <form id="chat-form">
+                <input type="text" id="chat-input" placeholder="Type a message...">
+                <button type="submit">Send</button>
+            </form>
+        </div>
+    </div>
+        <script type="module" src="/scripts/gamescript.js"></script>
+</body>
+</html>

@@ -3,54 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-    <title>Testing Chat</title>
+    <title>Home</title>
 </head>
-<style>
-    body{
-        margin: 0 auto;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        height: 100vh;
-        width: 90%;
-        max-width: 1200px;
-    }
-    #message-container {
-        border: 1px solid black;
-        width: 100%; 
-        flex-grow: 1;
-        overflow-y: auto;
-        margin-bottom: 10px; 
-    }
-    #message-container div {
-        background-color: #CCC;
-        padding: 5px;
-    }
-    #message-container div:nth-child(even) {
-        background-color: white;
-        padding: 5px;
-    }
-
-    form {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    
-</style>
 <body>
-    <div id="message-container"></div>
-        <form action="" id="form">
-            <label for="message-input">Message</label>
-            <input type="text" id="message-input">
-            <button type="submit" id="send-button">Send</button>
-            <label for="room-input">Room</label>
-            <input type="text" id="room-input">
-            <button type="button" id="room-button">Send</button>
-            
-        </form>
-        <script type="module" src="/scripts/script.js"></script>
+    <h1>Trivia.IO!!</h1>
+    <form action="/game" method="post" id="name-form">
+        <input type="text" name="name" placeholder="Enter Your Name" id="username" required>
+        <button type="submit">Play</button>
+    </form>
+    <script>
+        document.getElementById('name-form').addEventListener('submit', (e) => {
+            const username = document.getElementById('username').value.trim();
+            if (username) {
+                localStorage.setItem('username', username);
+            }
+        });
+    </script>
 </body>
 </html>
