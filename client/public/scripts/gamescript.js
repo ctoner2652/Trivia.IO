@@ -14,70 +14,11 @@ timerElement.style.marginTop = '10px';
 optionsContainer.parentNode.insertBefore(timerElement, optionsContainer);
 
 let buttonsDisabled = false;
-
-socket.on('connect', () => {
-    const username = localStorage.getItem('username');
-    if (!username) {
-        console.error('No username found. Redirecting to home...');
-        window.location.href = '/';
-        return;
-    }
-
-    console.log('Connected to server. Username:', username);
-
-    
-    socket.emit('get-username', (serverUsername) => {
-        if (serverUsername === username) {
-            console.log('Rejoining as:', username);
-            socket.emit('rejoin', username, (state) => {
-                if (state) {
-                    console.log('Restoring state:', state);
-                    restoreGameState(state);
-                }
-            });
-        } else {
-            console.log('New connection. Starting fresh game.');
-        }
-    });
-});
-
-
-
-
-
-document.addEventListener('DOMContentLoaded', () => {
-    const username = localStorage.getItem('username');
-    if (!username) {
-        window.location.href = '/';
-        return;
-    }
-
-    optionsContainer.innerHTML = ''; 
-    currentQuestion.options.forEach((option) => {
-        const button = document.createElement('button');
-        button.className = 'answer-choice';
-        button.textContent = option;
-
-        button.addEventListener('click', () => {
-            if (button.disabled) return; 
-            socket.emit('submit-answer', option);
-            disableButtons();
-        });
-
-        optionsContainer.appendChild(button);
-    });
-});
-
-
-function restoreGameState({ currentQuestion, timeLeft, playerAnswer }) {
-    if (!currentQuestion || timeLeft === undefined) {
-        console.error('Failed to restore state: Missing question or timer.');
-        return;
-    }
-
-    
+let restoringChatLog = true;
+let messageBuffer = [];
+socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimerEnded, transitionTimeLeft, chatLog }) => {
     questionElement.textContent = currentQuestion.question;
-    optionsContainer.innerHTML = ''; 
+    optionsContainer.innerHTML = '';
 
     currentQuestion.options.forEach((option) => {
         const button = document.createElement('button');
@@ -85,47 +26,13 @@ function restoreGameState({ currentQuestion, timeLeft, playerAnswer }) {
         button.textContent = option;
 
         if (playerAnswer) {
+            button.disabled = true;
+
             
-            button.disabled = true;
-            if (option === playerAnswer.answer) {
-                button.style.backgroundColor = playerAnswer.isCorrect
-                    ? 'lightgreen'
-                    : 'lightcoral';
-            }
-        } else {
-           
-            button.addEventListener('click', () => {
-                socket.emit('submit-answer', option);
-                disableButtons();
-            });
-        }
-
-        optionsContainer.appendChild(button);
-    });
-
-   
-    timerElement.textContent = `${timeLeft} seconds remaining`;
-}
-
-
-
-
-
-
-
-socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimerEnded, transitionTimeLeft }) => {
-    questionElement.textContent = currentQuestion.question;
-    optionsContainer.innerHTML = ''; 
-
-    currentQuestion.options.forEach((option) => {
-        const button = document.createElement('button');
-        button.className = 'answer-choice';
-        button.textContent = option;
-
-        if (playerAnswer) {
-            button.disabled = true;
-            if (option === playerAnswer) {
-                button.style.backgroundColor = option === currentQuestion.answer ? 'lightgreen' : 'lightcoral';
+            if (option === currentQuestion.answer) {
+                button.style.backgroundColor = 'lightgreen'; 
+            } else {
+                button.style.backgroundColor = 'lightcoral'; 
             }
         }
 
@@ -139,10 +46,22 @@ socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimer
         optionsContainer.appendChild(button);
     });
 
+    if (playerAnswer) {
+        const username = localStorage.getItem('username');
+        const feedbackElement = document.getElementById('feedback');
+        feedbackElement.innerHTML = '';
+        const feedbackText = document.createElement('span');
+        feedbackText.textContent = `${username} answered: ${playerAnswer === currentQuestion.answer ? 'Correct!' : 'Incorrect!'}`;
+        feedbackText.style.color = playerAnswer === currentQuestion.answer ? 'lightgreen' : 'lightcoral';
+        feedbackElement.appendChild(feedbackText);
+    }
+    
+
+    console.log(`Tranisition time left: `, transitionTimeLeft);
     if (mainTimerEnded && transitionTimeLeft !== null) {
+        
         timerElement.textContent = `Next question in ${transitionTimeLeft} seconds...`;
 
-       
         let remaining = transitionTimeLeft;
         const transitionInterval = setInterval(() => {
             remaining--;
@@ -155,12 +74,36 @@ socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimer
     } else {
         timerElement.textContent = `${timeLeft} seconds remaining`;
     }
+    for(let log of chatLog){
+        console.log('Restoring Chat Message', log.name, log.message);
+        const username = localStorage.getItem('username');
+        if(log.name === username){
+            log.name = 'You';
+        }
+        displayMessage(`${log.name}: ${log.message}`);
+    }
+    restoringChatLog = false;
+    processBufferedMessages();
 });
 
 
-
-
-
+function processBufferedMessages() {
+    messageBuffer.forEach(({name, message}) => {
+        displayMessage(`${name}: ${message}`);
+    });
+    messageBuffer = [];
+}
+socket.on('received-message', ({ name, message }) => {
+        console.log('Attempting To receive message:', name, message); 
+        if(restoringChatLog){
+            messageBuffer.push({name, message});
+            return; 
+        }
+           displayMessage(`${name}: ${message}`);
+        
+    
+    
+});
 
 
 socket.on('answer-feedback', ({ player, isCorrect }) => {
@@ -269,16 +212,7 @@ function disableButtons() {
     buttons.forEach((button) => (button.disabled = true));
 }
 
-function enableButtons() {
-    if (!buttonsDisabled) return; 
-    buttonsDisabled = false;
-    const buttons = optionsContainer.querySelectorAll('button');
-    buttons.forEach((button) => (button.disabled = false));
-}
-socket.on('received-message', ({ name, message }) => {
-    console.log('Received message:', name, message); 
-    displayMessage(`${name}: ${message}`); 
-});
+
 
 form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -295,6 +229,8 @@ form.addEventListener('submit', (e) => {
     
     messageInput.value = '';
 });
+
+
 
 function displayMessage(text) {
     const div = document.createElement('div');

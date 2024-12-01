@@ -6,7 +6,7 @@ const { Server } = require('socket.io');
 const session = require('express-session');
 const sharedSession = require('express-socket.io-session');
 const users = {};
-const playerMap = {};
+const disconnectedUsers = {};
 app.set('views', path.join(__dirname, '../client/views'));
 app.set('view engine', 'ejs');
 app.use(express.static(path.join(__dirname, '../client/public')));
@@ -26,7 +26,7 @@ let gameTimer = null;
 let questionTimeout = null; 
 let mainTimerEnded = false;
 let timeLeft = 15;
-
+const chatLog = [];
 
 const sessionMiddleware = session({
     secret: 'your-secret-key', 
@@ -110,35 +110,58 @@ io.on('connection', (socket) => {
         (id) => users[id] === username
     );
 
+    let isNewUser = false;
     if (existingSocketId && existingSocketId !== socket.id) {
         console.log(`Removing old socket ID for ${username}: ${existingSocketId}`);
         delete users[existingSocketId];
+    }else if (!disconnectedUsers[username]){
+        isNewUser = true;
     }
 
+    if(disconnectedUsers[username]){
+        clearTimeout(disconnectedUsers[username].timeout);
+        delete disconnectedUsers[username];
+    }
     users[socket.id] = username; 
-    console.log(`User connected: ${username}`);
-    console.log('Updated users mapping:', users);
+
+    if(isNewUser){
+        setTimeout(() => {
+            io.emit('received-message', {
+                name: 'System',
+                message: `${username} has joined the lobby`,
+            })
+            chatLog.push({name: 'System', message: `${username} has joined the lobby.`});
+        }, 300)
+        
+    };
+        
+   
     const playerAnswer = playersAnswered[username]?.answer || null;
     if (currentQuestion && timeLeft !== undefined) {
-        const transitionTimeLeft = mainTimerEnded ? Math.max(5 - (15 - timeLeft), 0) : null; 
-        console.log('Restoring game state for:', username);
+        let transitionTimeLeft = null;
+        if (mainTimerEnded) {
+        const timeSinceMainEnded = 15 - timeLeft;
+        transitionTimeLeft = Math.max(5 - timeSinceMainEnded, 0);
+        }
+        
         socket.emit('restore-state', {
             currentQuestion,
             timeLeft,
             playerAnswer,
             mainTimerEnded,
-            transitionTimeLeft
+            transitionTimeLeft,
+            chatLog
         });
     } else {
         console.log('Starting new game...');
         sendQuestion(); 
     }
 
+    
     socket.on('submit-answer', (answer) => {
         const username = users[socket.id];
         if (!username) return;
 
-        console.log(`User ${username} submitted answer: ${answer}`);
 
         if (playersAnswered[username]) {
             console.log(`User ${username} already answered. Ignoring.`);
@@ -148,7 +171,6 @@ io.on('connection', (socket) => {
         const isCorrect = answer === currentQuestion?.answer;
         playersAnswered[username] = { answer, isCorrect };
 
-        console.log(`${username} answered ${answer} - ${isCorrect ? 'Correct' : 'Incorrect'}`);
 
         io.emit('answer-feedback', {
             player: username,
@@ -156,8 +178,8 @@ io.on('connection', (socket) => {
         });
 
         if (Object.keys(playersAnswered).length === Object.keys(users).length) {
-            console.log('All players have answered. Ending question...');
-            clearInterval(gameTimer); 
+            clearInterval(gameTimer);
+            mainTimerEnded = true; 
             io.emit('question-ended', {
                 correctAnswer: currentQuestion.answer,
                 transitionTime: 5,
@@ -169,7 +191,6 @@ io.on('connection', (socket) => {
     socket.on('rejoin', (username, callback) => {
         console.log(`--- Rejoin Attempt by ${username} ---`);
         if (!username) {
-            console.error('Rejoin attempted without username.');
             return;
         }
 
@@ -184,7 +205,6 @@ io.on('connection', (socket) => {
 
 
         users[socket.id] = username;
-        console.log('Updated users mapping:', users);
         const playerAnswer = playersAnswered[username]?.answer || null;
 
         if (currentQuestion && timeLeft !== undefined) {
@@ -200,29 +220,36 @@ io.on('connection', (socket) => {
             sendQuestion();
         }
 
-        console.log(`--- End of Rejoin Handler ---`);
+        
     });
 
     socket.on('send-message', (message) => {
         const name = users[socket.id];
-        console.log(`${name} sent a message: ${message}`);
         socket.broadcast.emit('received-message', { name, message });
+        chatLog.push({name,message});
     });
 
     socket.on('disconnect', () => {
         const username = users[socket.id];
         if (username) {
             console.log(`User disconnected: ${username}`);
-            delete users[socket.id]; 
+            disconnectedUsers[username] = {
+                timeout: setTimeout(() => {
+                    console.log(`User ${username} did not reconnect. Removing Fully`);
+                    delete users[socket.id]; 
+                    delete disconnectedUsers[username];
+                    
+                    io.emit('received-message', {
+                        name: 'System',
+                        message: `${username} has left the lobby.`,
+                    });
+                    chatLog.push({name: 'System', message: `${username} has left the lobby.`});
+                }, 2000)
+            }
+            
         }
-        console.log('Users mapping after disconnect:', users);
     });
 });
-
-
-
-
-
 
 const sendQuestion = () => {
     mainTimerEnded = false;
@@ -260,45 +287,9 @@ const sendQuestion = () => {
         }
     }, 1000);
 };
-
-const handleAnswer = (playerId, answer) => {
-    if (!currentQuestion) return;
-
-    if (playersAnswered[playerId]) return; 
-
-    const isCorrect = answer === currentQuestion.answer;
-    playersAnswered[playerId] = { answer, isCorrect }; 
-
-    console.log(`${users[playerId]} answered: ${answer} - ${isCorrect ? 'Correct' : 'Incorrect'}`);
-
-    io.emit('answer-feedback', {
-        player: users[playerId],
-        isCorrect,
-    });
-
-    if (Object.keys(playersAnswered).length === Object.keys(users).length) {
-        clearInterval(gameTimer); 
-        io.emit('question-ended', { correctAnswer: currentQuestion.answer });
-
-        setTimeout(() => {
-            sendQuestion();
-        }, 5000);
-    }
-};
-
-
-
-
-
-
-
-
 server.listen(3000, () => {
     console.log('Server listening on http://localhost:3000');
 });
-
-
-
 app.post('/game', (req, res) => {
     const { name } = req.body;
 
@@ -307,7 +298,6 @@ app.post('/game', (req, res) => {
     }
 
     req.session.username = name.trim();
-    console.log('Session after setting username:', req.session); 
     req.session.save((err) => {
         if (err) {
             console.error('Session save error:', err);
@@ -316,19 +306,14 @@ app.post('/game', (req, res) => {
         res.redirect('/game');
     });
 });
-
-
 app.get('/game', (req, res) => {
     const username = req.session.username;
 
     if (!username) {
         return res.redirect('/');
     }
-    console.log(`User refreshing: ${username}`)
     res.render('game', { username });
 });
-
-
 app.get('*', (req, res) => {
     res.render('home');
 });
