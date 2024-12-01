@@ -125,13 +125,22 @@ io.on('connection', (socket) => {
     users[socket.id] = username; 
 
     if(isNewUser){
-        setTimeout(() => {
+        if(Object.keys(users).length > 1){
+            setTimeout(() => {
+                io.emit('received-message', {
+                    name: 'System',
+                    message: `${username} has joined the lobby`,
+                })
+                chatLog.push({name: 'System', message: `${username} has joined the lobby.`});
+            }, 50)
+        } else {
             io.emit('received-message', {
                 name: 'System',
                 message: `${username} has joined the lobby`,
-            })
+            });
             chatLog.push({name: 'System', message: `${username} has joined the lobby.`});
-        }, 300)
+        }
+        
         
     };
         

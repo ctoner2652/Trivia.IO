@@ -14,8 +14,6 @@ timerElement.style.marginTop = '10px';
 optionsContainer.parentNode.insertBefore(timerElement, optionsContainer);
 
 let buttonsDisabled = false;
-let restoringChatLog = true;
-let messageBuffer = [];
 socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimerEnded, transitionTimeLeft, chatLog }) => {
     questionElement.textContent = currentQuestion.question;
     optionsContainer.innerHTML = '';
@@ -82,27 +80,13 @@ socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimer
         }
         displayMessage(`${log.name}: ${log.message}`);
     }
-    restoringChatLog = false;
-    processBufferedMessages();
+
 });
 
 
-function processBufferedMessages() {
-    messageBuffer.forEach(({name, message}) => {
-        displayMessage(`${name}: ${message}`);
-    });
-    messageBuffer = [];
-}
+
 socket.on('received-message', ({ name, message }) => {
-        console.log('Attempting To receive message:', name, message); 
-        if(restoringChatLog){
-            messageBuffer.push({name, message});
-            return; 
-        }
-           displayMessage(`${name}: ${message}`);
-        
-    
-    
+        displayMessage(`${name}: ${message}`);   
 });
 
 
