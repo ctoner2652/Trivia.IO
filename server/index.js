@@ -25,9 +25,14 @@ let currentQuestion = null;
 let gameTimer = null;
 let questionTimeout = null; 
 let mainTimerEnded = false;
+let totalQuestions = 1; 
+let currentQuestionNumber = 0; 
 let timeLeft = 15;
 const chatLog = [];
 const scores = {};
+let currentScreen = null; 
+let afterQuestionData = null; 
+let gameOverData = null; 
 
 const sessionMiddleware = session({
     secret: 'your-secret-key', 
@@ -185,7 +190,12 @@ io.on('connection', (socket) => {
             playerAnswer,
             mainTimerEnded,
             transitionTimeLeft,
-            chatLog
+            chatLog,
+            totalQuestions,
+            currentQuestionNumber,
+            currentScreen, 
+            afterQuestionData, 
+            gameOverData
         });
     } else {
         console.log('Starting new game...');
@@ -239,11 +249,11 @@ io.on('connection', (socket) => {
                 correctAnswer: currentQuestion.answer,
                 transitionTime: 5,
             });
-            const afterQuestionData = {};
+            
 
-            // Loop through all users to populate their data
+            afterQuestionData = {};
             Object.keys(users).forEach((socketId) => {
-                const username = users[socketId]; // Get the username
+                const username = users[socketId]; 
                 const playerData = playersAnswered[username] || { isCorrect: false, timeTaken: 'No Answer', points: 0 }; // Default for non-respondents
 
                 afterQuestionData[username] = {
@@ -253,15 +263,17 @@ io.on('connection', (socket) => {
                 };
             });
 
-            // Sort the data by points (highest to lowest)
             const sortedPlayerData = Object.entries(afterQuestionData).sort(([, a], [, b]) => b.points - a.points);
 
-            // Emit the sorted data to the client
             io.emit('after-question', {
                 correctAnswer: currentQuestion.answer,
                 playerScores: sortedPlayerData,
             });
-
+            currentScreen = "after-question";
+            afterQuestionData = {
+                correctAnswer: currentQuestion.answer,
+                playerScores: sortedPlayerData,
+            };
             setTimeout(sendQuestion, 5000); 
         }
     });
@@ -340,9 +352,31 @@ io.on('connection', (socket) => {
     });
 });
 
+
+
 const sendQuestion = () => {
+    currentQuestionNumber++;
     mainTimerEnded = false;
-    console.log('Sending new question...');
+    currentScreen = '';
+    if (currentQuestionNumber > totalQuestions) {
+        const sortedScores = Object.entries(scores).sort(([, a], [, b]) => b - a);
+        const winner = sortedScores.length > 0 ? sortedScores[0][0] : null; 
+    
+        io.emit('game-over', {
+            winner,
+            finalScores: sortedScores
+        });
+        currentScreen = "game-over";
+        gameOverData = {
+            winner,
+            finalScores: sortedScores,
+        };
+        setTimeout(() => {
+            resetGame();
+        }, 7000);
+        return;
+    }
+
     if (gameTimer) clearInterval(gameTimer); 
     if (questionTimeout) clearTimeout(questionTimeout); 
 
@@ -353,7 +387,12 @@ const sendQuestion = () => {
     currentQuestion = triviaQuestions[randomIndex];
 
 
-    io.emit('new-question', currentQuestion);
+    io.emit('new-question', {
+        question: currentQuestion.question,
+        options: currentQuestion.options,
+        questionNumber: currentQuestionNumber, 
+        totalQuestions: totalQuestions, 
+    });
 
  
     timeLeft = 15;
@@ -368,11 +407,10 @@ const sendQuestion = () => {
                 correctAnswer: currentQuestion.answer,
                 transitionTime: 5,
             });
-            const afterQuestionData = {};
+            let afterQuestionData = {};
 
-            // Loop through all users to populate their data
             Object.keys(users).forEach((socketId) => {
-                const username = users[socketId]; // Get the username
+                const username = users[socketId];
                 const playerData = playersAnswered[username] || { isCorrect: false, timeTaken: 'No Answer', points: 0 }; // Default for non-respondents
 
                 afterQuestionData[username] = {
@@ -382,15 +420,17 @@ const sendQuestion = () => {
                 };
             });
 
-            // Sort the data by points (highest to lowest)
             const sortedPlayerData = Object.entries(afterQuestionData).sort(([, a], [, b]) => b.points - a.points);
 
-            // Emit the sorted data to the client
             io.emit('after-question', {
                 correctAnswer: currentQuestion.answer,
                 playerScores: sortedPlayerData,
             });
-
+            currentScreen = 'after-question';
+            afterQuestionData = {
+                correctAnswer: currentQuestion.answer,
+                playerScores: sortedPlayerData,
+            };
             
             questionTimeout = setTimeout(() => {
                 sendQuestion();
@@ -398,6 +438,27 @@ const sendQuestion = () => {
         }
     }, 1000);
 };
+function resetGame() {
+    currentQuestion = null; 
+    currentQuestionNumber = 0; 
+    playersAnswered = {}; 
+    Object.keys(scores).forEach((player) => {
+        scores[player] = 0;
+    });
+    io.emit('game-over', {
+        message: "The game has been reset! A new round will start shortly...",
+        chatLog, 
+        scores,  
+    });
+    currentScreen = '';
+    afterQuestionData = null;
+    gameOverData = null;
+    sendQuestion();
+    
+    io.emit('reset-game'); 
+    
+}
+
 server.listen(3000, () => {
     console.log('Server listening on http://localhost:3000');
 });

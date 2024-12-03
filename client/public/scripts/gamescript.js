@@ -22,47 +22,65 @@ socket.on('update-button-states', (buttonStates) => {
     buttons.forEach((button, index) => {
         const { isCorrect } = buttonStates[index];
         button.disabled = true;
-
-        // if (isCorrect) {
-        //     button.style.backgroundColor = 'lightgreen'; 
-        // } else {
-        //     button.style.backgroundColor = 'lightcoral'; 
-        // }
     });
 });
-socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimerEnded, transitionTimeLeft, chatLog }) => {
-    questionElement.textContent = currentQuestion.question;
-    optionsContainer.innerHTML = '';
+socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimerEnded, 
+    transitionTimeLeft, chatLog, totalQuestions, currentQuestionNumber, currentScreen, afterQuestionData, gameOverData}) => {
+    const gameOverContainer = document.getElementById('game-over-container');
+    if (currentScreen !== "game-over" && gameOverContainer.style.display === 'block') {
+        gameOverContainer.style.display = 'none';
+    }
+    if (currentQuestion && timeLeft !== undefined) {
+        questionElement.textContent = currentQuestion.question;
+        optionsContainer.innerHTML = '';
+        currentQuestion.options.forEach((option) => {
+            const button = document.createElement('button');
+            button.className = 'answer-choice';
+            button.textContent = option;
 
-    currentQuestion.options.forEach((option) => {
-        const button = document.createElement('button');
-        button.className = 'answer-choice';
-        button.textContent = option;
-
-        if (playerAnswer) {
-            button.disabled = true;
-
-            
-            // if (option === currentQuestion.answer) {
-            //     button.style.backgroundColor = 'lightgreen'; 
-            // } else {
-            //     button.style.backgroundColor = 'lightcoral'; 
-            // }
-        }
-
-        button.addEventListener('click', () => {
-            if (!button.disabled) {
-                socket.emit('submit-answer', option);
-                 ;
+            if (playerAnswer) {
+                button.disabled = true; // Disable buttons if the player has already answered
+            } else {
+                button.onclick = () => {
+                    socket.emit('submit-answer', option);
+                    disableButtons();
+                };
             }
+
+            optionsContainer.appendChild(button);
         });
+        topBarTimer.textContent = `⏱ ${timeLeft} Seconds remaining`;
+        const progressElement = document.querySelector('.progress');
+        progressElement.textContent = `Question ${currentQuestionNumber} of ${totalQuestions}`;
+    }
+    if (currentScreen === "after-question" && afterQuestionData) {
+        const { correctAnswer, playerScores } = afterQuestionData;
+        const correctAnswerElement = document.getElementById('correct-answer');
+        const playerScoresList = document.getElementById('player-scores');
+        const afterQuestionContainer = document.getElementById('after-question-container');
 
-        optionsContainer.appendChild(button);
-    });
-
-   
-    
-
+        correctAnswerElement.textContent = `The correct answer was ${correctAnswer}`;
+        playerScoresList.innerHTML = '';
+        playerScores.forEach(([player, { isCorrect, points }]) => {
+            const listItem = document.createElement('li');
+            const resultText = isCorrect ? `+${points}` : `0`;
+            const color = isCorrect ? 'green' : 'red';
+            listItem.innerHTML = `<strong>${player}</strong> <span style="color:${color}">${resultText}</span>`;
+            playerScoresList.appendChild(listItem);
+        });
+        afterQuestionContainer.style.display = 'flex';
+        console.log('Here is the current screen: ',currentScreen);
+        if(currentScreen === 'game-over'){
+            afterQuestionContainer.style.display = 'none';
+        }
+        setTimeout(() => {
+        afterQuestionContainer.style.display = 'none';
+        }, 5000);
+        
+    }
+    if (currentScreen === "game-over" && gameOverData) {
+        displayGameOverScreen(gameOverData.winner, gameOverData.finalScores);
+    }
     if (mainTimerEnded && transitionTimeLeft !== null) {
         
         
@@ -80,7 +98,6 @@ socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimer
     let isEven = true; 
 
     for (let log of chatLog) {
-        console.log('Restoring Chat Message', log.name, log.message);
     
         const username = localStorage.getItem('username');
         const isCurrentUser = log.name === username;
@@ -99,10 +116,25 @@ socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimer
     
         isEven = !isEven; 
     }
-    
+    const progressElement = document.querySelector('.progress');
+    progressElement.textContent = `Question ${currentQuestionNumber} of ${totalQuestions}`;
 
 });
+function displayGameOverScreen(winner, finalScores) {
+    const gameOverContainer = document.getElementById('game-over-container');
+    const winnerMessage = document.getElementById('winner-message');
+    const finalScoresList = document.getElementById('final-scores');
 
+    winnerMessage.textContent = `${winner} is the Winner!`;
+    finalScoresList.innerHTML = '';
+    finalScores.forEach(([player, score], index) => {
+        const listItem = document.createElement('li');
+        listItem.innerHTML = `<span>#${index + 1} ${player}</span> <span>${score} points</span>`;
+        finalScoresList.appendChild(listItem);
+    });
+
+    gameOverContainer.style.display = 'block';
+}
 
 
 socket.on('received-message', ({ name, message }) => {
@@ -120,57 +152,74 @@ socket.on('received-message', ({ name, message }) => {
 });
 
 
-socket.on('new-question', (questionData) => {
+socket.on('new-question', ({ question, options, questionNumber, totalQuestions }) => {
     buttonsDisabled = false;
-    const { question, options } = questionData;
 
-
-    
     questionElement.textContent = question;
 
-    
-    optionsContainer.innerHTML = ''; 
-
-
+    optionsContainer.innerHTML = '';
     options.forEach((option) => {
         const button = document.createElement('button');
         button.className = 'answer-choice';
         button.textContent = option;
 
-        
         button.onclick = () => {
             if (!buttonsDisabled) {
-                socket.emit('submit-answer', option); 
-                disableButtons(); 
-            }else{
-                console.log('Buttons are disabled. No action taken.');
+                socket.emit('submit-answer', option);
+                disableButtons();
             }
         };
 
         optionsContainer.appendChild(button);
     });
 
-    
+    const progressElement = document.querySelector('.progress');
+    progressElement.textContent = `Question ${questionNumber} of ${totalQuestions}`;
+
     topBarTimer.textContent = `⏱ 15 Seconds remaining`;
+});
 
-    const feedbackElement = document.getElementById('feedback');
-    if (feedbackElement) feedbackElement.textContent = '';
+socket.on('game-over', ({ winner, finalScores }) => {
+    const gameOverContainer = document.getElementById('game-over-container');
+    const winnerMessage = document.getElementById('winner-message');
+    const finalScoresList = document.getElementById('final-scores');
+    const questionElement = document.getElementById('question'); 
+    const optionsContainer = document.getElementById('answer-form'); 
+    questionElement.textContent = '';
+    optionsContainer.innerHTML = '';
+    winnerMessage.innerHTML = `${winner ? `<strong>${winner}</strong> is the Winner!` : "No winner this time!"}`;
+    const readyMessage = document.createElement('p');
+    readyMessage.textContent = "Get ready for the next round...";
+    readyMessage.style.fontSize = "16px";
+    readyMessage.style.marginTop = "10px";
+    readyMessage.style.color = "#cccccc"; 
+    winnerMessage.appendChild(readyMessage);
+    finalScoresList.innerHTML = '';
+    finalScores.forEach(([player, score], index) => {
+        const listItem = document.createElement('li');
+        listItem.innerHTML = `<span>#${index + 1} ${player}</span> <span>${score} points</span>`;
+        finalScoresList.appendChild(listItem);
+    });
+    gameOverContainer.style.display = 'block';
+    setTimeout(() => {
+        gameOverContainer.style.display = 'none';
+        winnerMessage.innerHTML = '';
+    }, 7000);
+});
 
+
+
+document.getElementById('restart-button').addEventListener('click', () => {
+    window.location.href = '/'; 
 });
 
 socket.on('update-leaderboard', (scores) => {
     const leaderboard = document.getElementById('leaderboard');
     leaderboard.innerHTML = ''; 
-
-    
     const sortedPlayers = Object.entries(scores).sort(([, a], [, b]) => b - a);
-
-    
     sortedPlayers.forEach(([player, score]) => {
         const li = document.createElement('li');
         const username = localStorage.getItem('username');
-        
-        
         li.textContent = player === username ? `${player}(You): ${score} points` : `${player}: ${score} points`;
         if (player === username) {
             li.style.fontWeight = 'bold'; 
@@ -193,18 +242,19 @@ socket.on('remove-player', ({ username }) => {
 socket.on('update-timer', (timeLeft) => {
     topBarTimer.textContent = `⏱ ${timeLeft} Seconds remaining`;
 });
-
+socket.on('reset-game', () => {
+    const gameOverContainer = document.getElementById('game-over-container');
+    gameOverContainer.style.display = 'none';
+    const winnerMessage = document.getElementById('winner-message');
+    if (winnerMessage) winnerMessage.innerHTML = '';
+    buttonsDisabled = false;
+});
 socket.on('question-ended', ({ correctAnswer, transitionTime }) => {
    
     const buttons = optionsContainer.querySelectorAll('button');
     buttons.forEach((button) => {
         console.log('hello');
         button.disabled = true; 
-        // if (button.textContent === correctAnswer) {
-        //     button.style.backgroundColor = 'lightgreen'; 
-        // } else {
-        //     button.style.backgroundColor = 'lightcoral'; 
-        // }
     });
 
     
@@ -251,8 +301,6 @@ socket.on('after-question', ({ correctAnswer, playerScores }) => {
     });
     const afterQuestionContainer = document.getElementById('after-question-container');
     afterQuestionContainer.style.display = 'flex';
-
-    // Hide the after-question overlay after 5 seconds
     setTimeout(() => {
         afterQuestionContainer.style.display = 'none';
     }, 5000);
