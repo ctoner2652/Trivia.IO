@@ -16,6 +16,20 @@ socket.on('username-exists', (username) => {
 
     window.location.href = '/?error=username-taken';
 });
+
+socket.on('update-button-states', (buttonStates) => {
+    const buttons = optionsContainer.querySelectorAll('button');
+    buttons.forEach((button, index) => {
+        const { isCorrect } = buttonStates[index];
+        button.disabled = true;
+
+        // if (isCorrect) {
+        //     button.style.backgroundColor = 'lightgreen'; 
+        // } else {
+        //     button.style.backgroundColor = 'lightcoral'; 
+        // }
+    });
+});
 socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimerEnded, transitionTimeLeft, chatLog }) => {
     questionElement.textContent = currentQuestion.question;
     optionsContainer.innerHTML = '';
@@ -29,11 +43,11 @@ socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimer
             button.disabled = true;
 
             
-            if (option === currentQuestion.answer) {
-                button.style.backgroundColor = 'lightgreen'; 
-            } else {
-                button.style.backgroundColor = 'lightcoral'; 
-            }
+            // if (option === currentQuestion.answer) {
+            //     button.style.backgroundColor = 'lightgreen'; 
+            // } else {
+            //     button.style.backgroundColor = 'lightcoral'; 
+            // }
         }
 
         button.addEventListener('click', () => {
@@ -125,9 +139,7 @@ socket.on('new-question', (questionData) => {
 
         
         button.onclick = () => {
-            console.log(`Button clicked: ${option}`);
             if (!buttonsDisabled) {
-                console.log(`Submitting answer: ${option}`);
                 socket.emit('submit-answer', option); 
                 disableButtons(); 
             }else{
@@ -159,7 +171,7 @@ socket.on('update-leaderboard', (scores) => {
         const username = localStorage.getItem('username');
         
         
-        li.textContent = player === username ? `${player}(You: ${score} points` : `${player}: ${score} points`;
+        li.textContent = player === username ? `${player}(You): ${score} points` : `${player}: ${score} points`;
         if (player === username) {
             li.style.fontWeight = 'bold'; 
         }
@@ -188,11 +200,11 @@ socket.on('question-ended', ({ correctAnswer, transitionTime }) => {
     buttons.forEach((button) => {
         console.log('hello');
         button.disabled = true; 
-        if (button.textContent === correctAnswer) {
-            button.style.backgroundColor = 'lightgreen'; 
-        } else {
-            button.style.backgroundColor = 'lightcoral'; 
-        }
+        // if (button.textContent === correctAnswer) {
+        //     button.style.backgroundColor = 'lightgreen'; 
+        // } else {
+        //     button.style.backgroundColor = 'lightcoral'; 
+        // }
     });
 
     
@@ -221,6 +233,32 @@ function disableButtons() {
     const buttons = optionsContainer.querySelectorAll('button');
     buttons.forEach((button) => (button.disabled = true));
 }
+
+socket.on('after-question', ({ correctAnswer, playerScores }) => {
+    const correctAnswerElement = document.getElementById('correct-answer');
+    correctAnswerElement.textContent = `The correct answer was ${correctAnswer}`;
+    const playerScoresList = document.getElementById('player-scores');
+    playerScoresList.innerHTML = '';
+
+    playerScores.forEach(([player, { isCorrect, timeTaken, points }]) => {
+        const listItem = document.createElement('li');
+        const resultText = isCorrect ? `+${points}` : `0`;
+        const color = isCorrect ? 'green' : 'red';
+        const timeInfo = timeTaken !== 'No Answer' ? ` | Time: ${timeTaken} seconds` : ' | No Answer';
+        
+        listItem.innerHTML = `<strong>${player}</strong> <span style="color:${color}">${resultText}</span>`;
+        playerScoresList.appendChild(listItem);
+    });
+    const afterQuestionContainer = document.getElementById('after-question-container');
+    afterQuestionContainer.style.display = 'flex';
+
+    // Hide the after-question overlay after 5 seconds
+    setTimeout(() => {
+        afterQuestionContainer.style.display = 'none';
+    }, 5000);
+});
+
+
 
 
 

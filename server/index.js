@@ -100,8 +100,12 @@ const triviaQuestions = [
 
 let playersAnswered = {};
 io.on('connection', (socket) => {
-    const username = socket.request.session.username;
+    let username = socket.request.session.username;
 
+    username = sanitizeHtml(username, {
+        allowedTags: [], 
+        allowedAttributes: {}, 
+    });
     if (!socket.request.session.usernameValidated) {
         const usernameExists = Object.values(users).includes(username);
 
@@ -203,10 +207,24 @@ io.on('connection', (socket) => {
         const timeTaken = 15 - timeLeft; 
 
         if (isCorrect) {
-            scores[username] += 10;
+            const basePoints = 100;
+            const bonusPoints = timeLeft * 10; 
+            const totalPoints = basePoints + bonusPoints;
+            scores[username] += totalPoints;
+            playersAnswered[username] = { answer, isCorrect, timeTaken, points: totalPoints };
+        } else {
+            playersAnswered[username] = { answer, isCorrect, timeTaken, points: 0 };
         }
-        playersAnswered[username] = { answer, isCorrect, timeTaken };
 
+        const buttonStates = currentQuestion.options.map((option) => {
+            return {
+                text: option,
+                isCorrect: option === currentQuestion.answer,
+                isSelected: option === answer,
+            };
+        });
+    
+        socket.emit('update-button-states', buttonStates);
         io.emit('received-message', {
             name: 'System',
             message: `${username} answered in ${timeTaken} seconds.`,
@@ -216,10 +234,34 @@ io.on('connection', (socket) => {
         if (Object.keys(playersAnswered).length === Object.keys(users).length) {
             clearInterval(gameTimer);
             mainTimerEnded = true; 
+
             io.emit('question-ended', {
                 correctAnswer: currentQuestion.answer,
                 transitionTime: 5,
             });
+            const afterQuestionData = {};
+
+            // Loop through all users to populate their data
+            Object.keys(users).forEach((socketId) => {
+                const username = users[socketId]; // Get the username
+                const playerData = playersAnswered[username] || { isCorrect: false, timeTaken: 'No Answer', points: 0 }; // Default for non-respondents
+
+                afterQuestionData[username] = {
+                    isCorrect: playerData.isCorrect,
+                    timeTaken: playerData.timeTaken,
+                    points: playerData.points,
+                };
+            });
+
+            // Sort the data by points (highest to lowest)
+            const sortedPlayerData = Object.entries(afterQuestionData).sort(([, a], [, b]) => b.points - a.points);
+
+            // Emit the sorted data to the client
+            io.emit('after-question', {
+                correctAnswer: currentQuestion.answer,
+                playerScores: sortedPlayerData,
+            });
+
             setTimeout(sendQuestion, 5000); 
         }
     });
@@ -325,6 +367,28 @@ const sendQuestion = () => {
             io.emit('question-ended', {
                 correctAnswer: currentQuestion.answer,
                 transitionTime: 5,
+            });
+            const afterQuestionData = {};
+
+            // Loop through all users to populate their data
+            Object.keys(users).forEach((socketId) => {
+                const username = users[socketId]; // Get the username
+                const playerData = playersAnswered[username] || { isCorrect: false, timeTaken: 'No Answer', points: 0 }; // Default for non-respondents
+
+                afterQuestionData[username] = {
+                    isCorrect: playerData.isCorrect,
+                    timeTaken: playerData.timeTaken,
+                    points: playerData.points,
+                };
+            });
+
+            // Sort the data by points (highest to lowest)
+            const sortedPlayerData = Object.entries(afterQuestionData).sort(([, a], [, b]) => b.points - a.points);
+
+            // Emit the sorted data to the client
+            io.emit('after-question', {
+                correctAnswer: currentQuestion.answer,
+                playerScores: sortedPlayerData,
             });
 
             
