@@ -39,7 +39,7 @@ socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimer
             button.textContent = option;
 
             if (playerAnswer) {
-                button.disabled = true; // Disable buttons if the player has already answered
+                button.disabled = true; 
             } else {
                 button.onclick = () => {
                     socket.emit('submit-answer', option);
@@ -216,17 +216,45 @@ document.getElementById('restart-button').addEventListener('click', () => {
 socket.on('update-leaderboard', (scores) => {
     const leaderboard = document.getElementById('leaderboard');
     leaderboard.innerHTML = ''; 
+
+   
     const sortedPlayers = Object.entries(scores).sort(([, a], [, b]) => b - a);
-    sortedPlayers.forEach(([player, score]) => {
-        const li = document.createElement('li');
+
+    
+    sortedPlayers.forEach(([player, score], index) => {
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'leaderboard-player';
+
+       
         const username = localStorage.getItem('username');
-        li.textContent = player === username ? `${player}(You): ${score} points` : `${player}: ${score} points`;
         if (player === username) {
-            li.style.fontWeight = 'bold'; 
+            playerDiv.classList.add('you');
         }
-        leaderboard.appendChild(li);
+
+       
+        const rankDiv = document.createElement('div');
+        rankDiv.className = 'leaderboard-rank';
+        rankDiv.textContent = `#${index + 1}`;
+
+        
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'leaderboard-info';
+        if (player === username) {
+            infoDiv.innerHTML = `<strong>${player} (You) </strong><br><span class="leaderboard-points">${score} points</span>`;
+        }else{
+            infoDiv.innerHTML = `<strong>${player}</strong><br><span class="leaderboard-points">${score} points</span>`;
+        }
+        
+
+        
+        playerDiv.appendChild(rankDiv);
+        playerDiv.appendChild(infoDiv);
+
+        
+        leaderboard.appendChild(playerDiv);
     });
 });
+
 
 socket.on('remove-player', ({ username }) => {
     const leaderboard = document.getElementById('leaderboard');
@@ -247,6 +275,14 @@ socket.on('reset-game', () => {
     gameOverContainer.style.display = 'none';
     const winnerMessage = document.getElementById('winner-message');
     if (winnerMessage) winnerMessage.innerHTML = '';
+    const leaderboard = document.getElementById('leaderboard');
+    leaderboard.innerHTML = '';
+
+    Object.keys(scores).forEach((player) => {
+        scores[player] = 0; 
+    });
+
+    socket.emit('update-leaderboard', scores);
     buttonsDisabled = false;
 });
 socket.on('question-ended', ({ correctAnswer, transitionTime }) => {

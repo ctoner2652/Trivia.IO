@@ -52,15 +52,57 @@
     margin-top: 65px;
 }
 
+
 #leaderboard-container {
-    flex: 0.6; 
-    background-color: white;
-    border: 1px solid #ccc;
-    border-radius: 10px;
-    padding: 10px;
+    flex: 0.6;
+    background-color: #ffffff;
     font-family: Arial, sans-serif;
-    height: 96%; 
+    max-height: 400px; 
+    overflow-y: auto; 
+    padding: 0; 
+    border-radius: 5px;
 }
+
+
+.leaderboard-player {
+    display: flex;
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 10px 15px;
+    font-size: 1rem;
+    margin: 0; 
+    width: 100%; 
+    background-color: #f9f9f9; 
+    box-sizing: border-box; 
+}
+
+
+.leaderboard-player:nth-child(odd) {
+    background-color: #e0e0e0; 
+
+}
+.leaderboard-rank {
+    font-weight: bold;
+    flex: 0.15; 
+    text-align: left;
+    margin-right: 10px; 
+}
+
+.leaderboard-info {
+    flex-grow: 1;
+    text-align: center;
+}
+
+
+.leaderboard-points {
+    font-weight: bold;
+    color: #555;
+}
+.leaderboard-player.you .leaderboard-info {
+    color: #0056b3; 
+    font-weight: bold; /
+}
+
 
 #quiz-container {
     position: relative;
@@ -135,15 +177,6 @@
     background-color: #ddd;
 }
 
-#leaderboard ul {
-    list-style: none;
-    padding: 0;
-}
-
-#leaderboard li {
-    margin: 5px 0;
-    font-size: 14px;
-}
 #after-question-container {
     display: none; 
     position: absolute;
@@ -205,13 +238,13 @@
     font-size: 14px;
 }
 #game-over-container {
-    display: none; /* Hidden by default */
+    display: none; 
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.85); /* Dark transparent background */
+    background-color: rgba(0, 0, 0, 0.85); 
     color: white;
     text-align: center;
     z-index: 100;
@@ -275,8 +308,8 @@
     <div id="main-container">
         
         <div id="leaderboard-container">
-            <h3>Leaderboard</h3>
-            <ul id="leaderboard"></ul>
+            
+            <div id="leaderboard"></div>
         </div>
         <div id="quiz-container">
             <h2 id="question">What is the capital of France?</h2>

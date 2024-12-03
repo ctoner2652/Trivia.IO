@@ -25,7 +25,7 @@ let currentQuestion = null;
 let gameTimer = null;
 let questionTimeout = null; 
 let mainTimerEnded = false;
-let totalQuestions = 1; 
+let totalQuestions = 10; 
 let currentQuestionNumber = 0; 
 let timeLeft = 15;
 const chatLog = [];
@@ -454,9 +454,8 @@ function resetGame() {
     afterQuestionData = null;
     gameOverData = null;
     sendQuestion();
-    
     io.emit('reset-game'); 
-    
+    io.emit('update-leaderboard', scores);
 }
 
 server.listen(3000, () => {

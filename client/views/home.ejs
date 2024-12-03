@@ -3,14 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home</title>
+    <title>Trivia.IO</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-image: url("data:image/svg+xml,<svg id='patternId' width='100%' height='100%' xmlns='http://www.w3.org/2000/svg'><defs><pattern id='a' patternUnits='userSpaceOnUse' width='33' height='30' patternTransform='scale(4) rotate(45)'><rect x='0' y='0' width='100%' height='100%' fill='%23245195ff'/><path d='M0 22.5h30v15H0zm15-15h30v15H15m-30-15h30v15h-30zm15-15h30v15H0z' transform='translate(1.5,0)' stroke-width='1' stroke='%23133f8cff' fill='none'/></pattern></defs><rect width='800%' height='800%' transform='translate(-232,-176)' fill='url(%23a)'/></svg>");
+    background-size: cover;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    color: #ffffff;
+    text-align: center;
+}
+
+.container {
+    width: 90%;
+    max-width: 1200px;
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+header h1 {
+    font-size: 3rem;
+    margin-bottom: 20px;
+    color: #ffd700; 
+    text-shadow: 2px 2px 5px #000000;
+}
+
+.form-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+#username {
+    width: 80%;
+    max-width: 400px;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    font-size: 1.2rem;
+    text-align: center;
+}
+
+.play-button {
+    width: 60%;
+    max-width: 300px;
+    padding: 15px;
+    font-size: 1.5rem;
+    border: none;
+    border-radius: 8px;
+    background-color: #4CAF50; 
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.play-button:hover {
+    background-color: #45a049;
+}
+
+
+.error-message {
+    color: red;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+
+footer p {
+    font-size: 0.9rem;
+    margin-top: 20px;
+    color: #cccccc;
+}
+
+    </style>
 </head>
 <body>
-    <h1>Trivia.IO!!</h1>
-    <form action="/game" method="post" id="name-form">
-        <input type="text" name="name" placeholder="Enter Your Name" id="username" required>
-        <button type="submit">Play</button>
-    </form>
+    <div class="container">
+        <header>
+            <h1>Trivia.IO</h1>
+        </header>
+        <main>
+            <form action="/game" method="post" id="name-form" class="form-container">
+                <input type="text" name="name" placeholder="Enter Your Name" id="username" required>
+                <button type="submit" class="play-button">Play!</button>
+            </form>
+        </main>
+        <footer>
+            <p>&copy; 2024 Trivia.IO. All Rights Reserved.</p>
+        </footer>
+    </div>
     <script>
         document.getElementById('name-form').addEventListener('submit', (e) => {
             const username = document.getElementById('username').value.trim();
@@ -19,18 +114,16 @@
             }
         });
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const error = urlParams.get('error');
+        const urlParams = new URLSearchParams(window.location.search);
+        const error = urlParams.get('error');
 
-    if (error === 'username-taken') {
-        const errorMessage = document.createElement('div');
-        errorMessage.textContent = 'The username is already in use. Please choose a different username.';
-        errorMessage.style.color = 'red';
-        errorMessage.style.fontWeight = 'bold';
-        errorMessage.style.marginTop = '10px';
-        const form = document.getElementById('name-form');
-        form.parentNode.insertBefore(errorMessage, form);
-    }
+        if (error === 'username-taken') {
+            const errorMessage = document.createElement('div');
+            errorMessage.textContent = 'The username is already in use. Please choose a different username.';
+            errorMessage.classList.add('error-message');
+            const form = document.getElementById('name-form');
+            form.parentNode.insertBefore(errorMessage, form);
+        }
     </script>
 </body>
 </html>
