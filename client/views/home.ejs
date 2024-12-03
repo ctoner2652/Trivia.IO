@@ -18,6 +18,19 @@
                 localStorage.setItem('username', username);
             }
         });
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+
+    if (error === 'username-taken') {
+        const errorMessage = document.createElement('div');
+        errorMessage.textContent = 'The username is already in use. Please choose a different username.';
+        errorMessage.style.color = 'red';
+        errorMessage.style.fontWeight = 'bold';
+        errorMessage.style.marginTop = '10px';
+        const form = document.getElementById('name-form');
+        form.parentNode.insertBefore(errorMessage, form);
+    }
     </script>
 </body>
 </html>

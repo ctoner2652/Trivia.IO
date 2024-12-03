@@ -8,84 +8,157 @@
 </head>
 <style>
     body {
-        margin: 0 auto;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        width: 90%;
-        max-width: 1200px;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-image: url("data:image/svg+xml,<svg id='patternId' width='100%' height='100%' xmlns='http://www.w3.org/2000/svg'><defs><pattern id='a' patternUnits='userSpaceOnUse' width='33' height='30' patternTransform='scale(4) rotate(45)'><rect x='0' y='0' width='100%' height='100%' fill='%23245195ff'/><path d='M0 22.5h30v15H0zm15-15h30v15H15m-30-15h30v15h-30zm15-15h30v15H0z' transform='translate(1.5,0)' stroke-width='1' stroke='%23133f8cff' fill='none'/></pattern></defs><rect width='800%' height='800%' transform='translate(-232,-176)' fill='url(%23a)'/></svg>");
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    }
+    .container {
+    width: 99%;
+    max-width: 1500px; 
+    margin: 0 auto; 
+    position: relative;
     }
 
-    #main-container {
-        display: flex;
-        flex-direction: row; 
-        justify-content: space-between; 
-        align-items: flex-start; 
-        width: 100%;
-        height: 100%;
-    }
+#top-bar {
+    width: 99%;
+    max-width: 1500px;
+    margin: 0 auto; 
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background-color: #ffffff;
+    border-radius: 10px;
+    font-size: 18px;
+    box-sizing: border-box;
+    position: fixed;
+    top: 0;
+    z-index: 1000;
+    height: 60px;
+}
 
-    #quiz-container {
-        flex: 2;
-        border: 1px solid black;
-        padding: 20px;
-        box-sizing: border-box;
-    }
+#main-container {
+    display: flex;
+    flex-direction: row; 
+    justify-content: space-between; 
+    align-items: flex-start; 
+    width: 100%;
+    height: calc(95vh - 65px); 
+    gap: 10px; 
+    margin-top: 65px;
+}
 
-    #chat-container {
-        flex: 1; 
-        border: 1px solid black;
-        padding: 20px;
-        box-sizing: border-box;
-        display: flex;
-        flex-direction: column; 
-        height: 100%; 
-    }
+#leaderboard-container {
+    flex: 0.6; 
+    background-color: white;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    padding: 10px;
+    font-family: Arial, sans-serif;
+    height: 96%; 
+}
 
-    #message-container {
-        flex-grow: 1; 
-        overflow-y: auto; 
-        border: 1px solid black;
-        margin-bottom: 10px;
-        padding: 10px;
-        background-color: #f9f9f9;
-    }
+#quiz-container {
+    flex: 2; 
+    border: 1px solid black;
+    border-radius: 10px;
+    padding: 20px;
+    box-sizing: border-box;
+    background-color: white;
+    height: 100%;
+}
 
-    #chat-form {
-        display: flex;
-        gap: 10px; 
-    }
+#chat-container {
+    flex: 1; 
+    border: 1px solid black;
+    border-radius: 10px;
+    padding: 10px;
+    box-sizing: border-box;
+    background-color: white;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 10px; 
+}
 
-    #chat-input {
-        flex-grow: 1; 
-        padding: 5px;
-    }
+#message-container {
+    flex-grow: 1; 
+    overflow-y: auto; 
+    border: 1px solid black;
+    padding: 10px;
+    background-color: #f9f9f9;
+    border-radius: 10px;
+}
 
-    #question {
-        margin-bottom: 20px;
-        font-size: 24px;
-    }
+#chat-form {
+    display: flex;
+    gap: 10px; 
+}
 
-    .answer-choice {
-        display: block; 
-        width: 100%;
-        margin-bottom: 10px;
-        padding: 10px;
-        font-size: 18px;
-        cursor: pointer;
-    }
+#chat-input {
+    flex-grow: 1; 
+    padding: 5px;
+    border-radius: 5px; 
+}
 
-    .answer-choice:hover {
-        background-color: #ddd;
-    }
+#chat-form button {
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+}
+
+#chat-form button:hover {
+    background-color: #45a049;
+}
+
+.answer-choice {
+    display: block;
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 10px;
+    font-size: 18px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.answer-choice:hover {
+    background-color: #ddd;
+}
+
+#leaderboard ul {
+    list-style: none;
+    padding: 0;
+}
+
+#leaderboard li {
+    margin: 5px 0;
+    font-size: 14px;
+}
 </style>
 
 <body>
+    <div class="container">
+    <div id="top-bar">
+    <div class="timer">⏱ 15 Seconds remaining</div>
+    <div class="progress">Question 3 of 10</div>
+    <div class="game-name">Trivia.IO</div>
+</div>
     <div id="main-container">
+        
+        <div id="leaderboard-container">
+            <h3>Leaderboard</h3>
+            <ul id="leaderboard"></ul>
+        </div>
         <div id="quiz-container">
             <h2 id="question">What is the capital of France?</h2>
-            <p id="feedback" style="font-weight: bold; margin-top: 10px;"></p>
             <form id="answer-form">
                 <button class="answer-choice">A: Paris</button>
                 <button class="answer-choice">B: London</button>
@@ -102,6 +175,7 @@
             </form>
         </div>
     </div>
-        <script type="module" src="/scripts/gamescript.js"></script>
+</div>
+    <script type="module" src="/scripts/gamescript.js"></script>
 </body>
 </html>

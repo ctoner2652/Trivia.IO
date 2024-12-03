@@ -12,7 +12,7 @@ app.set('view engine', 'ejs');
 app.use(express.static(path.join(__dirname, '../client/public')));
 app.use(express.urlencoded({ extended: true }));
 const server = http.createServer(app);
-
+const sanitizeHtml = require('sanitize-html');
 const io = new Server(server, {
     cors: {
         origin: '*', 
@@ -27,6 +27,7 @@ let questionTimeout = null;
 let mainTimerEnded = false;
 let timeLeft = 15;
 const chatLog = [];
+const scores = {};
 
 const sessionMiddleware = session({
     secret: 'your-secret-key', 
@@ -101,11 +102,31 @@ let playersAnswered = {};
 io.on('connection', (socket) => {
     const username = socket.request.session.username;
 
+    if (!socket.request.session.usernameValidated) {
+        const usernameExists = Object.values(users).includes(username);
+
+        if (usernameExists) {
+            socket.emit('username-exists');
+            return;
+        }
+
+        socket.request.session.usernameValidated = true;
+        socket.request.session.save();
+    }
+
     if (!username) {
         console.log('Connection without username, disconnecting socket');
         socket.disconnect();
         return;
     }
+    
+    if (!scores[username]) {
+        scores[username] = 0;
+    }
+
+    io.emit('update-leaderboard', scores);
+
+
     const existingSocketId = Object.keys(users).find(
         (id) => users[id] === username
     );
@@ -123,22 +144,23 @@ io.on('connection', (socket) => {
         delete disconnectedUsers[username];
     }
     users[socket.id] = username; 
-
+    
     if(isNewUser){
         if(Object.keys(users).length > 1){
             setTimeout(() => {
                 io.emit('received-message', {
                     name: 'System',
-                    message: `${username} has joined the lobby`,
+                    message: `${username} has joined the lobby!`,
                 })
-                chatLog.push({name: 'System', message: `${username} has joined the lobby.`});
+                chatLog.push({ name: 'System', message: `${username} has joined the lobby!`, type: 'join' });
             }, 50)
         } else {
             io.emit('received-message', {
                 name: 'System',
-                message: `${username} has joined the lobby`,
+                message: `${username} has joined the lobby!`,
             });
-            chatLog.push({name: 'System', message: `${username} has joined the lobby.`});
+            chatLog.push({ name: 'System', message: `${username} has joined the lobby!`, type: 'join' });
+
         }
         
         
@@ -178,14 +200,19 @@ io.on('connection', (socket) => {
         }
 
         const isCorrect = answer === currentQuestion?.answer;
-        playersAnswered[username] = { answer, isCorrect };
+        const timeTaken = 15 - timeLeft; 
 
+        if (isCorrect) {
+            scores[username] += 10;
+        }
+        playersAnswered[username] = { answer, isCorrect, timeTaken };
 
-        io.emit('answer-feedback', {
-            player: username,
-            isCorrect,
+        io.emit('received-message', {
+            name: 'System',
+            message: `${username} answered in ${timeTaken} seconds.`,
         });
-
+        chatLog.push({ name: 'System', message: `${username} answered in ${timeTaken} seconds.`, type: 'answer' });
+        io.emit('update-leaderboard', scores);
         if (Object.keys(playersAnswered).length === Object.keys(users).length) {
             clearInterval(gameTimer);
             mainTimerEnded = true; 
@@ -234,8 +261,16 @@ io.on('connection', (socket) => {
 
     socket.on('send-message', (message) => {
         const name = users[socket.id];
-        socket.broadcast.emit('received-message', { name, message });
-        chatLog.push({name,message});
+        const sanitizedMessage = sanitizeHtml(message, {
+            allowedTags: [], 
+            allowedAttributes: {}, 
+        });
+        if (sanitizedMessage.trim() === '') {
+            console.log('Empty or invalid message ignored');
+            return;
+        }
+        io.emit('received-message', { name, message: sanitizedMessage , type: 'regular' });
+        chatLog.push({name,message: sanitizedMessage });
     });
 
     socket.on('disconnect', () => {
@@ -252,7 +287,10 @@ io.on('connection', (socket) => {
                         name: 'System',
                         message: `${username} has left the lobby.`,
                     });
-                    chatLog.push({name: 'System', message: `${username} has left the lobby.`});
+                    chatLog.push({ name: 'System', message: `${username} has left the lobby.`, type: 'leave' });
+
+                    io.emit('remove-player', { username });
+                    delete scores[username];
                 }, 2000)
             }
             

@@ -1,19 +1,21 @@
 import { io } from 'https://cdn.socket.io/4.6.1/socket.io.esm.min.js';
-
 const messageInput = document.getElementById('chat-input');
 const form = document.getElementById('chat-form');
 const socket = io('http://localhost:3000');
-
-
-
 const questionElement = document.getElementById('question');
 const optionsContainer = document.getElementById('answer-form');
-const timerElement = document.createElement('p'); 
-timerElement.style.fontWeight = 'bold';
-timerElement.style.marginTop = '10px';
-optionsContainer.parentNode.insertBefore(timerElement, optionsContainer);
+const topBarTimer = document.querySelector('.timer');
 
+
+optionsContainer.addEventListener('submit', (e) => {
+    e.preventDefault();
+});
 let buttonsDisabled = false;
+
+socket.on('username-exists', (username) => {
+
+    window.location.href = '/?error=username-taken';
+});
 socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimerEnded, transitionTimeLeft, chatLog }) => {
     questionElement.textContent = currentQuestion.question;
     optionsContainer.innerHTML = '';
@@ -37,87 +39,84 @@ socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimer
         button.addEventListener('click', () => {
             if (!button.disabled) {
                 socket.emit('submit-answer', option);
-                disableButtons();
+                 ;
             }
         });
 
         optionsContainer.appendChild(button);
     });
 
-    if (playerAnswer) {
-        const username = localStorage.getItem('username');
-        const feedbackElement = document.getElementById('feedback');
-        feedbackElement.innerHTML = '';
-        const feedbackText = document.createElement('span');
-        feedbackText.textContent = `${username} answered: ${playerAnswer === currentQuestion.answer ? 'Correct!' : 'Incorrect!'}`;
-        feedbackText.style.color = playerAnswer === currentQuestion.answer ? 'lightgreen' : 'lightcoral';
-        feedbackElement.appendChild(feedbackText);
-    }
+   
     
 
-    console.log(`Tranisition time left: `, transitionTimeLeft);
     if (mainTimerEnded && transitionTimeLeft !== null) {
         
-        timerElement.textContent = `Next question in ${transitionTimeLeft} seconds...`;
-
+        
         let remaining = transitionTimeLeft;
         const transitionInterval = setInterval(() => {
             remaining--;
-            timerElement.textContent = `Next question in ${remaining} seconds...`;
-
+            
             if (remaining <= 0) {
                 clearInterval(transitionInterval);
             }
         }, 1000);
     } else {
-        timerElement.textContent = `${timeLeft} seconds remaining`;
+        topBarTimer.textContent = `⏱ ${timeLeft} Seconds remaining`;
     }
-    for(let log of chatLog){
+    let isEven = true; 
+
+    for (let log of chatLog) {
         console.log('Restoring Chat Message', log.name, log.message);
+    
         const username = localStorage.getItem('username');
-        if(log.name === username){
-            log.name = 'You';
+        const isCurrentUser = log.name === username;
+    
+        if (log.name === 'System') {
+            
+            displayMessage(log.message, log.type);
+        } else {
+            
+            displayMessage(
+                `<span style="font-weight: bold;">${isCurrentUser ? username : log.name}</span>: ${log.message}`,
+                log.type,
+                isEven
+            );
         }
-        displayMessage(`${log.name}: ${log.message}`);
+    
+        isEven = !isEven; 
     }
+    
 
 });
 
 
 
 socket.on('received-message', ({ name, message }) => {
-        displayMessage(`${name}: ${message}`);   
+    if (name === 'System') {
+        if (message.includes('joined')) {
+            displayMessage(message, 'join');
+        } else if (message.includes('left')) {
+            displayMessage(message, 'leave');
+        } else if (message.includes('answered')) {
+            displayMessage(message, 'answer');
+        }
+    } else {
+        displayMessage(`<span style="font-weight: bold;">${name}</span>: ${message}`, 'regular');
+    }
 });
 
-
-socket.on('answer-feedback', ({ player, isCorrect }) => {
-    const feedbackElement = document.getElementById('feedback');
-
-   
-    const feedbackEntry = document.createElement('p');
-    feedbackEntry.textContent = `${player} answered ${isCorrect ? 'Correctly!' : 'Incorrectly!'}`;
-    feedbackEntry.style.color = isCorrect ? 'green' : 'red';
-
- 
-    feedbackElement.appendChild(feedbackEntry);
-
-    
-    feedbackElement.scrollTop = feedbackElement.scrollHeight;
-});
 
 socket.on('new-question', (questionData) => {
+    buttonsDisabled = false;
     const { question, options } = questionData;
 
-    console.log('--- New Question Received ---');
-    console.log('Question:', question);
-    console.log('Options:', options);
 
     
     questionElement.textContent = question;
 
     
     optionsContainer.innerHTML = ''; 
-    console.log('Clearing previous options...');
+
 
     options.forEach((option) => {
         const button = document.createElement('button');
@@ -140,26 +139,54 @@ socket.on('new-question', (questionData) => {
     });
 
     
-    timerElement.textContent = '15 seconds remaining';
-    console.log('Resetting timer to 15 seconds.');
+    topBarTimer.textContent = `⏱ 15 Seconds remaining`;
 
     const feedbackElement = document.getElementById('feedback');
     if (feedbackElement) feedbackElement.textContent = '';
 
-    console.log('--- End of New Question Handler ---');
 });
 
+socket.on('update-leaderboard', (scores) => {
+    const leaderboard = document.getElementById('leaderboard');
+    leaderboard.innerHTML = ''; 
 
+    
+    const sortedPlayers = Object.entries(scores).sort(([, a], [, b]) => b - a);
 
+    
+    sortedPlayers.forEach(([player, score]) => {
+        const li = document.createElement('li');
+        const username = localStorage.getItem('username');
+        
+        
+        li.textContent = player === username ? `${player}(You: ${score} points` : `${player}: ${score} points`;
+        if (player === username) {
+            li.style.fontWeight = 'bold'; 
+        }
+        leaderboard.appendChild(li);
+    });
+});
+
+socket.on('remove-player', ({ username }) => {
+    const leaderboard = document.getElementById('leaderboard');
+    const playerEntries = leaderboard.querySelectorAll('li');
+    
+    playerEntries.forEach(entry => {
+        if (entry.textContent.includes(username)) {
+            entry.remove(); 
+        }
+    });
+});
 
 socket.on('update-timer', (timeLeft) => {
-    timerElement.textContent = `${timeLeft} seconds remaining`;
+    topBarTimer.textContent = `⏱ ${timeLeft} Seconds remaining`;
 });
 
 socket.on('question-ended', ({ correctAnswer, transitionTime }) => {
    
     const buttons = optionsContainer.querySelectorAll('button');
     buttons.forEach((button) => {
+        console.log('hello');
         button.disabled = true; 
         if (button.textContent === correctAnswer) {
             button.style.backgroundColor = 'lightgreen'; 
@@ -170,15 +197,14 @@ socket.on('question-ended', ({ correctAnswer, transitionTime }) => {
 
     
     let transitionLeft = transitionTime || 5; 
-    timerElement.textContent = `Correct answer: ${correctAnswer}. Next question in ${transitionLeft} seconds...`;
-
+   
     const transitionInterval = setInterval(() => {
         transitionLeft--;
-        timerElement.textContent = `Correct answer: ${correctAnswer}. Next question in ${transitionLeft} seconds...`;
-
+        
         if (transitionLeft <= 0) {
             clearInterval(transitionInterval);
-            timerElement.textContent = ''; 
+            
+            topBarTimer.textContent = `⏱`;
 
             
             buttons.forEach((button) => {
@@ -203,22 +229,51 @@ form.addEventListener('submit', (e) => {
     const message = messageInput.value.trim();
     if (!message) return;
 
-    
-    displayMessage(`You: ${message}`);
-    console.log('Sending message:', message);
-
-    
     socket.emit('send-message', message);
 
-    
     messageInput.value = '';
 });
 
 
 
-function displayMessage(text) {
+function displayMessage(text, type, isEven) {
     const div = document.createElement('div');
-    div.textContent = text;
+
+    div.innerHTML = text;
+
+    const messageContainer = document.getElementById('message-container');
+    if(!isEven){
+        isEven = messageContainer.childElementCount % 2 === 0;
+    }
+    
+
+    if (isEven) {
+        div.style.backgroundColor = '#f9f9f9'; 
+    } else {
+        div.style.backgroundColor = '#e0e0e0'; 
+    }
+
+    switch (type) {
+        case 'join':
+            div.style.color = 'green';
+            break;
+        case 'leave':
+            div.style.color = 'red';
+            break;
+        case 'answer':
+            div.style.backgroundColor = '#d4edda'; 
+            div.style.color = '#155724'; 
+            break;
+        default:
+            div.style.backgroundColor = isEven ? '#e0e0e0' : '#f9f9f9'; 
+    }
+
     document.getElementById('message-container').appendChild(div);
+
+
+    document.getElementById('message-container').scrollTop = document.getElementById('message-container').scrollHeight;
 }
+
+
+
 
