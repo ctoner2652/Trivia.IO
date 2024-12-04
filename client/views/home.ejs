@@ -11,39 +11,104 @@
             padding: 0;
             box-sizing: border-box;
         }
-
+        main, form {
+            width: 100%; 
+        }
         body {
-            font-family: Arial, sans-serif;
-            background-image: url("data:image/svg+xml,<svg id='patternId' width='100%' height='100%' xmlns='http://www.w3.org/2000/svg'><defs><pattern id='a' patternUnits='userSpaceOnUse' width='33' height='30' patternTransform='scale(4) rotate(45)'><rect x='0' y='0' width='100%' height='100%' fill='%23245195ff'/><path d='M0 22.5h30v15H0zm15-15h30v15H15m-30-15h30v15h-30zm15-15h30v15H0z' transform='translate(1.5,0)' stroke-width='1' stroke='%23133f8cff' fill='none'/></pattern></defs><rect width='800%' height='800%' transform='translate(-232,-176)' fill='url(%23a)'/></svg>");
-            background-size: cover;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            color: #ffffff;
-            text-align: center;
-
+            min-height: 100vh; 
+            margin: 0;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cdefs%3E%3Cpattern id='qmarkPattern' patternUnits='userSpaceOnUse' width='150' height='150'%3E%3Crect width='100%25' height='100%25' fill='%23245195ff'/%3E%3Ctext x='20' y='50' font-family='Arial' font-size='40' fill='%23133f8cff' transform='rotate(-15,20,50)'%3E?%3C/text%3E%3Ctext x='100' y='120' font-family='Arial' font-size='50' fill='%23133f8cff' transform='rotate(30,100,120)'%3E?%3C/text%3E%3Ctext x='50' y='100' font-family='Arial' font-size='30' fill='%23133f8cff' transform='rotate(-45,50,100)'%3E?%3C/text%3E%3Ctext x='120' y='30' font-family='Arial' font-size='35' fill='%23133f8cff' transform='rotate(20,120,30)'%3E?%3C/text%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23qmarkPattern)'/%3E%3C/svg%3E");
+            font-family: Arial, sans-serif;
         }
 
         .container {
-            width: 32rem;
-            height: 32rem;
-            background-color: rgba(0, 0, 0, 0.85);
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.5);
+            width: calc(25rem + 0.3vw); 
+            padding: 15px; 
+            background-color: #123595;
+            border-radius: 5px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
         }
 
-        header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-            color: #ffd700;
-            text-shadow: 2px 2px 5px #000000;
+        #logo-container {
+        text-align: center;
+        margin-bottom: 20px;
         }
+
+        #logo {
+            font-family: 'Arial', sans-serif;
+            font-size: 3.5rem;
+            font-weight: bold;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .gradient {
+            background: linear-gradient(to right, #3498db, #9b59b6);
+            background-clip: inherit;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .highlight {
+            color: #f39c12;
+            text-shadow: 0px 0px 8px rgba(255, 223, 0, 0.8);
+        }
+
+        #quiz-words {
+    margin-top: 10px;
+    font-size: 1.2rem;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative; /* Ensure proper alignment */
+    height: 30px; /* Fixed height to prevent collapse */
+    overflow: hidden; /* Hide non-active words */
+}
+
+#quiz-words span {
+    position: absolute; /* Stack all words */
+    opacity: 0; /* Start with hidden */
+    animation: fadeWords 18s infinite; /* Loop through animations */
+}
+
+#quiz-words span:nth-child(1) {
+    animation-delay: 0s; /* First word */
+}
+
+#quiz-words span:nth-child(2) {
+    animation-delay: 6s; /* Second word */
+}
+
+#quiz-words span:nth-child(3) {
+    animation-delay: 12s; /* Third word */
+}
+
+@keyframes fadeWords {
+    0% {
+        opacity: 0;
+        transform: translateY(10px); /* Move up smoothly */
+    }
+    15% {
+        opacity: 1;
+        transform: translateY(0); /* Visible and stable */
+    }
+    33% {
+        opacity: 0;
+        transform: translateY(-10px); /* Move out smoothly */
+    }
+}
+
+
 
         #username {
-            width: 90%;
-            max-width: 300px;
+            width: 100%;
             padding: 10px;
             margin: 10px 0;
             border-radius: 8px;
@@ -56,18 +121,23 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        margin: 20px auto;
+        margin: 0px auto;
+        padding: 30px;
         padding: 20px;
+        background-color: #103086;
         }
-        #avatar{
-            width: 10rem;
-            height: 10rem;
+        .avatar {
+            width: 5px; 
+            height: 5px;
+            margin: 0 auto;
         }
+
+
 
         #customization-wrapper {
         display: flex;
-        justify-content: space-between;
         align-items: center;
+        justify-content: center;
         width: 100%;
         height: 100%;
         }
@@ -75,19 +145,31 @@
         .customization-column {
         display: flex;
         flex-direction: column;
-        justify-content: space-evenly;
-        align-items: center;
-        height: 100%;
+        height: calc(5.5rem + 0.3vw);  
+        justify-content: center;
         }
 
+        .left {
+            
+            margin-left: 100px;
+        }
+
+        .right {
+            margin-right: 100px 
+        }
+
+        #avatar {
+        width: calc(5.5rem + 0.3vw);    
+        height: calc(5.5rem + 0.3vw); 
+        margin: 0 auto;
+        }
         .arrow {
-        cursor: pointer;
-        font-size: 24px;
-        padding: 10px;
+        font-size: 18px;
+        padding: 5px;
         color: white;
+        cursor: pointer;
         transition: color 0.2s ease;
-        }
-
+         }
         .arrow:hover {
         color: #ffd700;
         }
@@ -101,31 +183,26 @@
 
         .play-button,
         .create-room-button {
-            width: 80%;
-            max-width: 300px;
-            padding: 10px;
-            margin: 10px 0;
-            font-size: 1.2rem;
-            border: none;
-            border-radius: 8px;
-            background-color: #4CAF50;
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
+            width: 100%; 
+            font-size: 1rem; 
+            padding: 8px; 
+            margin: 5px 0;
+            border-radius: 5px;
         }
 
         .play-button:hover,
         .create-room-button:hover {
-            background-color: #45a049;
+            background-color: #53e237;
         }
 
         .create-room-button {
-            background-color: #007BFF;
+            background-color: #2c8de7;
         }
 
         .create-room-button:hover {
             background-color: #0056b3;
         }
+        
 
         .error-message {
             color: red;
@@ -133,33 +210,51 @@
             margin: 10px 0;
         }
         
+        button {
+        background-color: #53e237;
+        color: white;
+        border: none;
+        font-size: 1.2rem;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0px 3px 5px rgba(0, 0, 0, 0.3);
+        }
     </style>
 </head>
 <body>
+    <div id="logo-container">
+        <h1 id="logo">
+            <span class="gradient">Trivia</span>
+            <span class="highlight">.IO</span>
+        </h1>
+        <div id="quiz-words">
+            <span>Trivia!</span>
+            <span>Quiz!</span>
+            <span>Guess!</span>
+        </div>
+    </div>
     <div class="container">
-        <header>
-            <h1>Trivia.IO</h1>
-        </header>
+        
         <main>
             <form action="/game" method="post" id="name-form">
-                <input type="text" name="name" placeholder="Enter Your Name" id="username" required>
+                <input type="text" name="name" placeholder="Enter Your Name" id="username" required maxlength="12">
                 <div id="avatar-container">
                     <div id="customization-wrapper">
                       <!-- Left Side Arrows -->
-                      <div class="customization-column">
-                        <span class="arrow" id="left-top">⬅️</span>
-                        <span class="arrow" id="left-eyes">⬅️</span>
-                        <span class="arrow" id="left-clothes">⬅️</span>
+                      <div class="customization-column left">
+                        <span class="arrow" id="left-top"><</span>
+                        <span class="arrow" id="left-eyes"><</span>
+                        <span class="arrow" id="left-clothes"><</span>
                       </div>
                   
                       <!-- Avatar in the Middle -->
                       <img id="avatar" src="" alt="Your Avatar">
                   
                       <!-- Right Side Arrows -->
-                      <div class="customization-column">
-                        <span class="arrow" id="right-top">➡️</span>
-                        <span class="arrow" id="right-eyes">➡️</span>
-                        <span class="arrow" id="right-clothes">➡️</span>
+                      <div class="customization-column right">
+                        <span class="arrow" id="right-top">></span>
+                        <span class="arrow" id="right-eyes">></span>
+                        <span class="arrow" id="right-clothes">></span>
                       </div>
                     </div>
                   </div>
@@ -168,6 +263,7 @@
             </form>
         </main>
     </div>
+    <canvas id="background-canvas"></canvas>
     <script>
         document.getElementById('name-form').addEventListener('submit', (e) => {
             const username = document.getElementById('username').value.trim();
@@ -188,6 +284,7 @@
             const form = document.getElementById('name-form');
             form.parentNode.insertBefore(errorMessage, form);
         }
+        
     </script>
     <script src="scripts/avatar-customization.js"></script>
 </body>

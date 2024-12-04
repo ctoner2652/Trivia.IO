@@ -6,6 +6,19 @@ const questionElement = document.getElementById('question');
 const optionsContainer = document.getElementById('answer-form');
 const topBarTimer = document.querySelector('.timer');
 
+const chatInput = document.getElementById('chat-input');
+const charCounter = document.getElementById('char-counter');
+
+chatInput.addEventListener('input', () => {
+    const charCount = chatInput.value.length;
+    charCounter.textContent = `${charCount}/100`;
+
+    if (charCount >= 100) {
+        charCounter.classList.add('limit-reached');
+    } else {
+        charCounter.classList.remove('limit-reached');
+    }
+});
 
 optionsContainer.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -353,7 +366,7 @@ form.addEventListener('submit', (e) => {
     if (!message) return;
 
     socket.emit('send-message', message);
-
+    charCounter.textContent = `0/100`;
     messageInput.value = '';
 });
 

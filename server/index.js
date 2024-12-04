@@ -468,13 +468,15 @@ server.listen(3000, () => {
     console.log('Server listening on http://localhost:3000');
 });
 app.post('/game', (req, res) => {
-    const { name } = req.body;
+    let { name } = req.body;
 
     if (!name || name.trim() === '') {
         return res.redirect('/');
     }
 
-    req.session.username = name.trim();
+    name = name.trim().substring(0, 12); 
+    req.session.username = name;
+
     req.session.save((err) => {
         if (err) {
             console.error('Session save error:', err);

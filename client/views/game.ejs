@@ -57,23 +57,24 @@
     flex: 0.6;
     background-color: #ffffff;
     font-family: Arial, sans-serif;
-    max-height: 400px; 
-    overflow-y: auto; 
-    padding: 0; 
+    max-height: 100%; /* Ensures it never overflows */
+    overflow-y: hidden; /* Prevents scrollbars */
+    padding: 0;
     border-radius: 5px;
+    display: flex;
+    flex-direction: column; /* Adjusts content vertically */
 }
 
 
 .leaderboard-player {
     display: flex;
-    justify-content: space-between; 
-    align-items: center; 
-    padding: 10px 15px;
-    font-size: 1rem;
-    margin: 0; 
-    width: 100%; 
-    background-color: #f9f9f9; 
-    box-sizing: border-box; 
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px; /* Reduced padding for smaller sizes */
+    font-size: calc(0.6rem + 0.5vw); /* Responsive font size based on screen width */
+    width: 100%;
+    background-color: #f9f9f9;
+    box-sizing: border-box;
 }
 
 
@@ -82,15 +83,26 @@
 
 }
 .leaderboard-rank {
+    flex: 0 0 40px; /* Fixed width for rank */
+    text-align: right; /* Align to the right side */
     font-weight: bold;
-    flex: 0.15; 
-    text-align: left;
-    margin-right: 10px; 
 }
-
-.leaderboard-info {
-    flex-grow: 1;
+.leaderboard-rank,
+.leaderboard-info,
+.leaderboard-avatar {
+    flex: 1; /* Ensures even spacing between elements */
     text-align: center;
+}
+.leaderboard-info {
+    flex: 10; /* Takes up remaining space */
+    text-align: center;
+    font-size: calc(0.6rem + 0.3vw); /* Responsive font size */
+    white-space: nowrap; /* Prevent wrapping */
+    overflow: hidden; /* Hide overflow */
+    text-overflow: ellipsis; /* Add ellipses for overflow */
+    width: 2500ch; /* Exactly 12 character spaces allocated */
+    max-width: 2500ch; /* Prevent it from exceeding 12 characters */
+    box-sizing: border-box; /* Include padding and borders in width */
 }
 
 
@@ -102,11 +114,26 @@
     color: #0056b3; 
     font-weight: bold; /
 }
-.leaderboard-avatar{
-            width: 5rem;
-            height: 5rem;
+.leaderboard-avatar {
+    width: calc(2rem + 0.5vw); /* Scales based on screen size */
+    height: auto;
+    border-radius: 50%;
 }
+@media (max-width: 768px) {
+    /* For smaller screens */
+    #leaderboard-container {
+        max-height: 200px; /* Restrict height */
+    }
 
+    .leaderboard-player {
+        font-size: 0.8rem;
+        padding: 3px 5px;
+    }
+
+    .leaderboard-avatar img {
+        width: 2rem;
+    }
+}
 #quiz-container {
     position: relative;
     flex: 2; 
@@ -139,6 +166,10 @@
     padding: 10px;
     background-color: #f9f9f9;
     border-radius: 10px;
+    word-wrap: break-word; 
+    white-space: pre-wrap; 
+    max-width: 90%; 
+    overflow-wrap: anywhere;
 }
 
 #chat-form {
@@ -146,10 +177,40 @@
     gap: 10px; 
 }
 
+/* Wrap input and counter */
+.input-container {
+    position: relative;
+    width: 100%; /* Ensure the container spans the width of the input */
+}
+
+/* Style the input field */
+/* Style the input field */
 #chat-input {
-    flex-grow: 1; 
+    width: 100%;
     padding: 5px;
-    border-radius: 5px; 
+    padding-right: 60px; /* Reserve space for the counter */
+    box-sizing: border-box;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    position: relative; /* Required for layering */
+    font-size: 14px;
+    font-family: Arial, sans-serif;
+}
+
+/* Position the character counter inside the input field */
+#char-counter {
+    position: absolute;
+    right: 10px; /* Distance from the right edge of the input */
+    top: 50%; /* Center vertically */
+    transform: translateY(-50%); /* Adjust for vertical alignment */
+    font-size: 12px;
+    color: #555;
+    pointer-events: none; /* Make it unclickable */
+}
+
+/* Change the counter color when the limit is reached */
+#char-counter.limit-reached {
+    color: red;
 }
 
 #chat-form button {
@@ -343,7 +404,10 @@
             <div id="message-container">
             </div>
             <form id="chat-form">
-                <input type="text" id="chat-input" placeholder="Type a message...">
+                <div class="input-container">
+                    <input type="text" id="chat-input" placeholder="Type a message..." maxlength="100">
+                    <span id="char-counter">0/100</span>
+                </div>
                 <button type="submit">Send</button>
             </form>
         </div>
