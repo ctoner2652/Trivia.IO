@@ -6,89 +6,133 @@
     <title>Trivia.IO</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-body {
-    font-family: Arial, sans-serif;
-    background-image: url("data:image/svg+xml,<svg id='patternId' width='100%' height='100%' xmlns='http://www.w3.org/2000/svg'><defs><pattern id='a' patternUnits='userSpaceOnUse' width='33' height='30' patternTransform='scale(4) rotate(45)'><rect x='0' y='0' width='100%' height='100%' fill='%23245195ff'/><path d='M0 22.5h30v15H0zm15-15h30v15H15m-30-15h30v15h-30zm15-15h30v15H0z' transform='translate(1.5,0)' stroke-width='1' stroke='%23133f8cff' fill='none'/></pattern></defs><rect width='800%' height='800%' transform='translate(-232,-176)' fill='url(%23a)'/></svg>");
-    background-size: cover;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    color: #ffffff;
-    text-align: center;
-}
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url("data:image/svg+xml,<svg id='patternId' width='100%' height='100%' xmlns='http://www.w3.org/2000/svg'><defs><pattern id='a' patternUnits='userSpaceOnUse' width='33' height='30' patternTransform='scale(4) rotate(45)'><rect x='0' y='0' width='100%' height='100%' fill='%23245195ff'/><path d='M0 22.5h30v15H0zm15-15h30v15H15m-30-15h30v15h-30zm15-15h30v15H0z' transform='translate(1.5,0)' stroke-width='1' stroke='%23133f8cff' fill='none'/></pattern></defs><rect width='800%' height='800%' transform='translate(-232,-176)' fill='url(%23a)'/></svg>");
+            background-size: cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #ffffff;
+            text-align: center;
 
-.container {
-    width: 90%;
-    max-width: 1200px;
-    background-color: rgba(0, 0, 0, 0.8);
-    padding: 20px;
-    border-radius: 15px;
-    box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.5);
-}
+        }
 
-header h1 {
-    font-size: 3rem;
-    margin-bottom: 20px;
-    color: #ffd700; 
-    text-shadow: 2px 2px 5px #000000;
-}
+        .container {
+            width: 32rem;
+            height: 32rem;
+            background-color: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.5);
+        }
 
-.form-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
-}
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #ffd700;
+            text-shadow: 2px 2px 5px #000000;
+        }
 
-#username {
-    width: 80%;
-    max-width: 400px;
-    padding: 10px;
-    border-radius: 8px;
-    border: none;
-    font-size: 1.2rem;
-    text-align: center;
-}
+        #username {
+            width: 90%;
+            max-width: 300px;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: none;
+            font-size: 1rem;
+            text-align: center;
+        }
 
-.play-button {
-    width: 60%;
-    max-width: 300px;
-    padding: 15px;
-    font-size: 1.5rem;
-    border: none;
-    border-radius: 8px;
-    background-color: #4CAF50; 
-    color: white;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
+        #avatar-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 20px auto;
+        padding: 20px;
+        }
+        #avatar{
+            width: 10rem;
+            height: 10rem;
+        }
 
-.play-button:hover {
-    background-color: #45a049;
-}
+        #customization-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+        }
 
+        .customization-column {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-evenly;
+        align-items: center;
+        height: 100%;
+        }
 
-.error-message {
-    color: red;
-    font-weight: bold;
-    margin-top: 10px;
-}
+        .arrow {
+        cursor: pointer;
+        font-size: 24px;
+        padding: 10px;
+        color: white;
+        transition: color 0.2s ease;
+        }
 
+        .arrow:hover {
+        color: #ffd700;
+        }
 
-footer p {
-    font-size: 0.9rem;
-    margin-top: 20px;
-    color: #cccccc;
-}
+        .feature-name {
+            margin: 0 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #ffffff;
+        }
 
+        .play-button,
+        .create-room-button {
+            width: 80%;
+            max-width: 300px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 8px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .play-button:hover,
+        .create-room-button:hover {
+            background-color: #45a049;
+        }
+
+        .create-room-button {
+            background-color: #007BFF;
+        }
+
+        .create-room-button:hover {
+            background-color: #0056b3;
+        }
+
+        .error-message {
+            color: red;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
     </style>
 </head>
 <body>
@@ -97,20 +141,40 @@ footer p {
             <h1>Trivia.IO</h1>
         </header>
         <main>
-            <form action="/game" method="post" id="name-form" class="form-container">
+            <form action="/game" method="post" id="name-form">
                 <input type="text" name="name" placeholder="Enter Your Name" id="username" required>
+                <div id="avatar-container">
+                    <div id="customization-wrapper">
+                      <!-- Left Side Arrows -->
+                      <div class="customization-column">
+                        <span class="arrow" id="left-top">⬅️</span>
+                        <span class="arrow" id="left-eyes">⬅️</span>
+                        <span class="arrow" id="left-clothes">⬅️</span>
+                      </div>
+                  
+                      <!-- Avatar in the Middle -->
+                      <img id="avatar" src="" alt="Your Avatar">
+                  
+                      <!-- Right Side Arrows -->
+                      <div class="customization-column">
+                        <span class="arrow" id="right-top">➡️</span>
+                        <span class="arrow" id="right-eyes">➡️</span>
+                        <span class="arrow" id="right-clothes">➡️</span>
+                      </div>
+                    </div>
+                  </div>
                 <button type="submit" class="play-button">Play!</button>
+                <button type="button" class="create-room-button">Create Private Room</button>
             </form>
         </main>
-        <footer>
-            <p>&copy; 2024 Trivia.IO. All Rights Reserved.</p>
-        </footer>
     </div>
     <script>
         document.getElementById('name-form').addEventListener('submit', (e) => {
             const username = document.getElementById('username').value.trim();
+            const avatar = document.getElementById('avatar');
             if (username) {
                 localStorage.setItem('username', username);
+                localStorage.setItem('avatar', avatar.src);
             }
         });
 
@@ -125,5 +189,6 @@ footer p {
             form.parentNode.insertBefore(errorMessage, form);
         }
     </script>
+    <script src="scripts/avatar-customization.js"></script>
 </body>
 </html>

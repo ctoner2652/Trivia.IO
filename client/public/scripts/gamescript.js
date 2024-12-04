@@ -213,60 +213,61 @@ document.getElementById('restart-button').addEventListener('click', () => {
     window.location.href = '/'; 
 });
 
-socket.on('update-leaderboard', (scores) => {
+socket.on('update-leaderboard', (scores, avatars) => {
     const leaderboard = document.getElementById('leaderboard');
     leaderboard.innerHTML = ''; 
 
-   
     const sortedPlayers = Object.entries(scores).sort(([, a], [, b]) => b - a);
 
-    
     sortedPlayers.forEach(([player, score], index) => {
         const playerDiv = document.createElement('div');
         playerDiv.className = 'leaderboard-player';
 
-       
         const username = localStorage.getItem('username');
         if (player === username) {
             playerDiv.classList.add('you');
         }
 
-       
         const rankDiv = document.createElement('div');
         rankDiv.className = 'leaderboard-rank';
         rankDiv.textContent = `#${index + 1}`;
 
-        
         const infoDiv = document.createElement('div');
         infoDiv.className = 'leaderboard-info';
         if (player === username) {
-            infoDiv.innerHTML = `<strong>${player} (You) </strong><br><span class="leaderboard-points">${score} points</span>`;
-        }else{
+            infoDiv.innerHTML = `<strong>${player} (You)</strong><br><span class="leaderboard-points">${score} points</span>`;
+        } else {
             infoDiv.innerHTML = `<strong>${player}</strong><br><span class="leaderboard-points">${score} points</span>`;
         }
-        
 
-        
+        const avatarDiv = document.createElement('div');
+        avatarDiv.innerHTML = `<img src="${avatars[player]}" class="leaderboard-avatar">`;
+
         playerDiv.appendChild(rankDiv);
         playerDiv.appendChild(infoDiv);
+        playerDiv.appendChild(avatarDiv);
 
-        
         leaderboard.appendChild(playerDiv);
     });
 });
 
 
+
 socket.on('remove-player', ({ username }) => {
     const leaderboard = document.getElementById('leaderboard');
-    const playerEntries = leaderboard.querySelectorAll('li');
-    
-    playerEntries.forEach(entry => {
-        if (entry.textContent.includes(username)) {
-            entry.remove(); 
+    const playerEntries = leaderboard.querySelectorAll('.leaderboard-player');
+
+    playerEntries.forEach((entry) => {
+        const playerName = entry.querySelector('.leaderboard-info strong')?.textContent.split(" (You)")[0];
+        if (playerName === username) {
+            leaderboard.removeChild(entry);
         }
     });
 });
 
+socket.on('connect', () =>{
+    socket.emit('join-game', localStorage.getItem("avatar"));
+})
 socket.on('update-timer', (timeLeft) => {
     topBarTimer.textContent = `⏱ ${timeLeft} Seconds remaining`;
 });

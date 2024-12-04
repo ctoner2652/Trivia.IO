@@ -25,11 +25,12 @@ let currentQuestion = null;
 let gameTimer = null;
 let questionTimeout = null; 
 let mainTimerEnded = false;
-let totalQuestions = 10; 
+let totalQuestions = 1; 
 let currentQuestionNumber = 0; 
 let timeLeft = 15;
 const chatLog = [];
 const scores = {};
+const avatars = {};
 let currentScreen = null; 
 let afterQuestionData = null; 
 let gameOverData = null; 
@@ -122,18 +123,23 @@ io.on('connection', (socket) => {
         socket.request.session.usernameValidated = true;
         socket.request.session.save();
     }
-
+    
     if (!username) {
         console.log('Connection without username, disconnecting socket');
         socket.disconnect();
         return;
     }
-    
+
+    socket.on('join-game', (avatar) => {
+        avatars[username] = avatar; // Map the avatar to the username
+        console.log(`User ${username} joined with avatar: ${avatar}`);
+        io.emit('update-leaderboard', scores, avatars);
+    });
     if (!scores[username]) {
         scores[username] = 0;
     }
 
-    io.emit('update-leaderboard', scores);
+    io.emit('update-leaderboard', scores, avatars);
 
 
     const existingSocketId = Object.keys(users).find(
@@ -240,7 +246,7 @@ io.on('connection', (socket) => {
             message: `${username} answered in ${timeTaken} seconds.`,
         });
         chatLog.push({ name: 'System', message: `${username} answered in ${timeTaken} seconds.`, type: 'answer' });
-        io.emit('update-leaderboard', scores);
+        io.emit('update-leaderboard', scores, avatars);
         if (Object.keys(playersAnswered).length === Object.keys(users).length) {
             clearInterval(gameTimer);
             mainTimerEnded = true; 
@@ -336,7 +342,7 @@ io.on('connection', (socket) => {
                     console.log(`User ${username} did not reconnect. Removing Fully`);
                     delete users[socket.id]; 
                     delete disconnectedUsers[username];
-                    
+                    delete avatars[username];
                     io.emit('received-message', {
                         name: 'System',
                         message: `${username} has left the lobby.`,
@@ -455,7 +461,7 @@ function resetGame() {
     gameOverData = null;
     sendQuestion();
     io.emit('reset-game'); 
-    io.emit('update-leaderboard', scores);
+    io.emit('update-leaderboard', scores, avatars);
 }
 
 server.listen(3000, () => {
