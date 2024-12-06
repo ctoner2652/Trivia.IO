@@ -121,7 +121,7 @@ socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimer
         } else {
             
             displayMessage(
-                `<span style="font-weight: bold;">${isCurrentUser ? username : log.name}</span>: ${log.message}`,
+                `<span style="font-weight: 900;">${isCurrentUser ? username : log.name}</span>: ${log.message}`,
                 log.type,
                 isEven
             );
@@ -373,21 +373,18 @@ form.addEventListener('submit', (e) => {
 
 
 function displayMessage(text, type, isEven) {
-    const div = document.createElement('div');
-
-    div.innerHTML = text;
-
-    const messageContainer = document.getElementById('message-container');
-    if(!isEven){
-        isEven = messageContainer.childElementCount % 2 === 0;
-    }
     
-
-    if (isEven) {
-        div.style.backgroundColor = '#f9f9f9'; 
-    } else {
-        div.style.backgroundColor = '#e0e0e0'; 
+    function formatMessage(message, maxChar) {
+        return message.replace(new RegExp(`(.{${maxChar}})`, 'g'), '$1 ');
     }
+
+    
+    const formattedText = formatMessage(text, 20);
+
+    
+    const div = document.createElement('div');
+    div.className = 'chat-message';
+    div.innerHTML = text; 
 
     switch (type) {
         case 'join':
@@ -397,18 +394,44 @@ function displayMessage(text, type, isEven) {
             div.style.color = 'red';
             break;
         case 'answer':
-            div.style.backgroundColor = '#d4edda'; 
-            div.style.color = '#155724'; 
+            div.style.backgroundColor = '#d4edda';
+            div.style.color = '#155724';
             break;
         default:
-            div.style.backgroundColor = isEven ? '#e0e0e0' : '#f9f9f9'; 
+            div.style.backgroundColor = isEven ? '#e0e0e0' : '#f9f9f9';
+            div.innerHTML = formattedText;
     }
 
-    document.getElementById('message-container').appendChild(div);
+    const messageContainer = document.getElementById('message-container');
 
+    
+    const allMessages = messageContainer.children;
+    const totalMessages = allMessages.length;
+    const calculatedEven = totalMessages % 2 === 0;
 
-    document.getElementById('message-container').scrollTop = document.getElementById('message-container').scrollHeight;
+   
+    if (isEven === undefined) {
+        isEven = calculatedEven;
+    }
+
+    
+    if (isEven) {
+        div.style.backgroundColor = '#f9f9f9';
+    } else {
+        div.style.backgroundColor = '#e0e0e0';
+    }
+
+   
+    
+
+    
+    messageContainer.appendChild(div);
+
+    
+    messageContainer.scrollTop = messageContainer.scrollHeight;
 }
+
+
 
 
 

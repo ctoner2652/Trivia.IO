@@ -131,7 +131,7 @@ io.on('connection', (socket) => {
     }
 
     socket.on('join-game', (avatar) => {
-        avatars[username] = avatar; // Map the avatar to the username
+        avatars[username] = avatar; 
         console.log(`User ${username} joined with avatar: ${avatar}`);
         io.emit('update-leaderboard', scores, avatars);
     });
