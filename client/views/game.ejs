@@ -62,6 +62,7 @@
         font-weight: 400;
         font-style: normal;
         background: linear-gradient(90deg, yellow, red);
+        background-clip: text;
         -webkit-background-clip: text;
         margin-top: 1rem;
         -webkit-text-fill-color: transparent;
@@ -425,12 +426,12 @@
             <div id="leaderboard"></div>
         </div>
         <div id="quiz-container">
-            <h2 id="question">What is the capital of France?</h2>
+            <h2 id="question">Awaiting questions to load...</h2>
             <form id="answer-form">
-                <button class="answer-choice">A: Paris</button>
-                <button class="answer-choice">B: London</button>
-                <button class="answer-choice">C: Berlin</button>
-                <button class="answer-choice">D: Madrid</button>
+                <button class="answer-choice"></button>
+                <button class="answer-choice"></button>
+                <button class="answer-choice"></button>
+                <button class="answer-choice"></button>
             </form>
             <div id="after-question-container" style="display:none" >
                     <h2 id="correct-answer">The correct answer was: [Answer]</h2>

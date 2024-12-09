@@ -9,6 +9,23 @@ const topBarTimer = document.querySelector('.timer');
 const chatInput = document.getElementById('chat-input');
 const charCounter = document.getElementById('char-counter');
 
+socket.on('connect', () => {
+    const avatar = localStorage.getItem('avatar') || 'default-avatar-url';
+    console.log('Joining game with avatar:', avatar);
+    socket.emit('join-game', avatar);
+})
+
+if (!localStorage.getItem('username')) {
+    window.location.href = '/'; // Redirect to main menu
+}
+
+if (performance.navigation.type === performance.navigation.TYPE_RELOAD) {
+    console.log('Page refreshed, clearing localStorage.');
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = '/'; // Redirect to the main menu
+}
+
 chatInput.addEventListener('input', () => {
     const charCount = chatInput.value.length;
     charCounter.textContent = `${charCount}/100`;
@@ -30,6 +47,10 @@ socket.on('username-exists', (username) => {
     window.location.href = '/?error=username-taken';
 });
 
+socket.on('connect_error', (error) => {
+    console.error('Socket.IO connection error:', error);
+});
+
 socket.on('update-button-states', (buttonStates) => {
     const buttons = optionsContainer.querySelectorAll('button');
     buttons.forEach((button, index) => {
@@ -37,109 +58,22 @@ socket.on('update-button-states', (buttonStates) => {
         button.disabled = true;
     });
 });
-socket.on('restore-state', ({ currentQuestion, timeLeft, playerAnswer, mainTimerEnded, 
-    transitionTimeLeft, chatLog, totalQuestions, currentQuestionNumber, currentScreen, afterQuestionData, gameOverData}) => {
-    const gameOverContainer = document.getElementById('game-over-container');
-    if (currentScreen !== "game-over" && gameOverContainer.style.display === 'block') {
-        gameOverContainer.style.display = 'none';
-    }
-    if (currentQuestion && timeLeft !== undefined) {
-        questionElement.textContent = currentQuestion.question;
-        optionsContainer.innerHTML = '';
-        currentQuestion.options.forEach((option) => {
-            const button = document.createElement('button');
-            button.className = 'answer-choice';
-            button.textContent = option;
 
-            if (playerAnswer) {
-                button.disabled = true; 
-            } else {
-                button.onclick = () => {
-                    socket.emit('submit-answer', option);
-                    disableButtons();
-                };
-            }
 
-            optionsContainer.appendChild(button);
-        });
-        topBarTimer.textContent = `⏱ ${timeLeft} Seconds remaining`;
-        const progressElement = document.querySelector('.progress');
-        progressElement.textContent = `Question ${currentQuestionNumber} of ${totalQuestions}`;
-    }
-    if (currentScreen === "after-question" && afterQuestionData) {
-        const { correctAnswer, playerScores } = afterQuestionData;
-        const correctAnswerElement = document.getElementById('correct-answer');
-        const playerScoresList = document.getElementById('player-scores');
-        const afterQuestionContainer = document.getElementById('after-question-container');
-
-        correctAnswerElement.textContent = `The correct answer was ${correctAnswer}`;
-        playerScoresList.innerHTML = '';
-        playerScores.forEach(([player, { isCorrect, points }]) => {
-            const listItem = document.createElement('li');
-            const resultText = isCorrect ? `+${points}` : `0`;
-            const color = isCorrect ? 'green' : 'red';
-            listItem.innerHTML = `<strong>${player}</strong> <span style="color:${color}">${resultText}</span>`;
-            playerScoresList.appendChild(listItem);
-        });
-        afterQuestionContainer.style.display = 'flex';
-        console.log('Here is the current screen: ',currentScreen);
-        if(currentScreen === 'game-over'){
-            afterQuestionContainer.style.display = 'none';
-        }
-        setTimeout(() => {
-        afterQuestionContainer.style.display = 'none';
-        }, 5000);
-        
-    }
-    if (currentScreen === "game-over" && gameOverData) {
-        displayGameOverScreen(gameOverData.winner, gameOverData.finalScores);
-    }
-    if (mainTimerEnded && transitionTimeLeft !== null) {
-        
-        
-        let remaining = transitionTimeLeft;
-        const transitionInterval = setInterval(() => {
-            remaining--;
-            
-            if (remaining <= 0) {
-                clearInterval(transitionInterval);
-            }
-        }, 1000);
-    } else {
-        topBarTimer.textContent = `⏱ ${timeLeft} Seconds remaining`;
-    }
-    let isEven = true; 
-
-    for (let log of chatLog) {
-    
-        const username = localStorage.getItem('username');
-        const isCurrentUser = log.name === username;
-    
-        if (log.name === 'System') {
-            
-            displayMessage(log.message, log.type);
-        } else {
-            
-            displayMessage(
-                `<span style="font-weight: 900;">${isCurrentUser ? username : log.name}</span>: ${log.message}`,
-                log.type,
-                isEven
-            );
-        }
-    
-        isEven = !isEven; 
-    }
-    const progressElement = document.querySelector('.progress');
-    progressElement.textContent = `Question ${currentQuestionNumber} of ${totalQuestions}`;
-
-});
 function displayGameOverScreen(winner, finalScores) {
     const gameOverContainer = document.getElementById('game-over-container');
     const winnerMessage = document.getElementById('winner-message');
     const finalScoresList = document.getElementById('final-scores');
+    console.log(`Here is final scores in displayGameOverScreen `, finalScores);
+    // Ensure finalScores is defined and is an array
+    if (!Array.isArray(finalScores)) {
+        console.error('Invalid finalScores:', finalScores);
+        return;
+    }
 
     winnerMessage.textContent = `${winner} is the Winner!`;
-    finalScoresList.innerHTML = '';
+    finalScoresList.innerHTML = ''; // Clear previous content
+
     finalScores.forEach(([player, score], index) => {
         const listItem = document.createElement('li');
         listItem.innerHTML = `<span>#${index + 1} ${player}</span> <span>${score} points</span>`;
@@ -148,6 +82,7 @@ function displayGameOverScreen(winner, finalScores) {
 
     gameOverContainer.style.display = 'block';
 }
+
 
 
 socket.on('received-message', ({ name, message }) => {
@@ -194,32 +129,59 @@ socket.on('new-question', ({ question, options, questionNumber, totalQuestions }
 
 socket.on('game-over', ({ winner, finalScores }) => {
     const gameOverContainer = document.getElementById('game-over-container');
-    const winnerMessage = document.getElementById('winner-message');
-    const finalScoresList = document.getElementById('final-scores');
-    const questionElement = document.getElementById('question'); 
-    const optionsContainer = document.getElementById('answer-form'); 
-    questionElement.textContent = '';
-    optionsContainer.innerHTML = '';
-    winnerMessage.innerHTML = `${winner ? `<strong>${winner}</strong> is the Winner!` : "No winner this time!"}`;
-    const readyMessage = document.createElement('p');
-    readyMessage.textContent = "Get ready for the next round...";
-    readyMessage.style.fontSize = "16px";
-    readyMessage.style.marginTop = "10px";
-    readyMessage.style.color = "#cccccc"; 
-    winnerMessage.appendChild(readyMessage);
-    finalScoresList.innerHTML = '';
-    finalScores.forEach(([player, score], index) => {
-        const listItem = document.createElement('li');
-        listItem.innerHTML = `<span>#${index + 1} ${player}</span> <span>${score} points</span>`;
-        finalScoresList.appendChild(listItem);
-    });
-    gameOverContainer.style.display = 'block';
+    displayGameOverScreen(winner, finalScores);
     setTimeout(() => {
         gameOverContainer.style.display = 'none';
         winnerMessage.innerHTML = '';
-    }, 7000);
+    }, 5000);
 });
 
+socket.on('sync-lobby', ({ currentQuestion, timeLeft, currentQuestionNumber, totalQuestions, chatLog, scores, avatars }) => {
+    // Update the chat log
+    const messageContainer = document.getElementById('message-container');
+    messageContainer.innerHTML = '';
+    chatLog.forEach(({ name, message, type }) => {
+        displayMessage(name === 'System' ? message : `<strong>${name}</strong>: ${message}`, type);
+    });
+
+    // // Update the leaderboard
+    // const leaderboard = document.getElementById('leaderboard');
+    // leaderboard.innerHTML = '';
+    // Object.entries(scores)
+    //     .sort(([, a], [, b]) => b - a)
+    //     .forEach(([player, score], index) => {
+    //         const playerDiv = document.createElement('div');
+    //         playerDiv.className = 'leaderboard-player';
+    //         playerDiv.innerHTML = `
+    //             <div class="leaderboard-rank">#${index + 1}</div>
+    //             <div class="leaderboard-info">${player}: ${score} points</div>
+    //             <div class="leaderboard-avatar"><img src="${avatars[player]}" /></div>
+    //         `;
+    //         leaderboard.appendChild(playerDiv);
+    //     });
+
+    // Update the current question and timer
+    if (currentQuestion) {
+        questionElement.textContent = currentQuestion.question;
+
+        optionsContainer.innerHTML = '';
+        currentQuestion.options.forEach((option) => {
+            const button = document.createElement('button');
+            button.className = 'answer-choice';
+            button.textContent = option;
+            button.onclick = () => {
+                socket.emit('submit-answer', option);
+                disableButtons();
+            };
+            optionsContainer.appendChild(button);
+        });
+
+        const progressElement = document.querySelector('.progress');
+        progressElement.textContent = `Question ${currentQuestionNumber} of ${totalQuestions}`;
+
+        topBarTimer.textContent = `⏱ ${timeLeft} Seconds remaining`;
+    }
+});
 
 
 document.getElementById('restart-button').addEventListener('click', () => {
@@ -264,8 +226,6 @@ socket.on('update-leaderboard', (scores, avatars) => {
     });
 });
 
-
-
 socket.on('remove-player', ({ username }) => {
     const leaderboard = document.getElementById('leaderboard');
     const playerEntries = leaderboard.querySelectorAll('.leaderboard-player');
@@ -278,54 +238,49 @@ socket.on('remove-player', ({ username }) => {
     });
 });
 
-socket.on('connect', () =>{
-    socket.emit('join-game', localStorage.getItem("avatar"));
-})
+
 socket.on('update-timer', (timeLeft) => {
     topBarTimer.textContent = `⏱ ${timeLeft} Seconds remaining`;
 });
-socket.on('reset-game', () => {
-    const gameOverContainer = document.getElementById('game-over-container');
-    gameOverContainer.style.display = 'none';
-    const winnerMessage = document.getElementById('winner-message');
-    if (winnerMessage) winnerMessage.innerHTML = '';
+socket.on('reset-game', ({ message, scores }) => {
+    console.log(message);
     const leaderboard = document.getElementById('leaderboard');
-    leaderboard.innerHTML = '';
+    leaderboard.innerHTML = ''; // Clear the leaderboard
 
-    Object.keys(scores).forEach((player) => {
-        scores[player] = 0; 
-    });
+    if (scores) {
+        Object.keys(scores).forEach((player) => {
+            scores[player] = 0; // Reset scores
+        });
+    } else {
+        console.error('Scores are not provided!');
+    }
 
-    socket.emit('update-leaderboard', scores);
-    buttonsDisabled = false;
+    buttonsDisabled = false; // Allow interaction again
 });
-socket.on('question-ended', ({ correctAnswer, transitionTime }) => {
-   
-    const buttons = optionsContainer.querySelectorAll('button');
-    buttons.forEach((button) => {
-        console.log('hello');
-        button.disabled = true; 
-    });
 
-    
-    let transitionLeft = transitionTime || 5; 
-   
-    const transitionInterval = setInterval(() => {
-        transitionLeft--;
+
+socket.on('question-ended', ({ correctAnswer, playerScores, transitionTime }) => {
+    const correctAnswerElement = document.getElementById('correct-answer');
+    const playerScoresList = document.getElementById('player-scores');
+    const afterQuestionContainer = document.getElementById('after-question-container');
+
+    correctAnswerElement.textContent = `The correct answer was ${correctAnswer}`;
+    playerScoresList.innerHTML = '';
+    console.log('This is what playerScores is: ', playerScores);
+    playerScores.forEach(({ username, isCorrect, points }) => {
+        const listItem = document.createElement('li');
+        const resultText = isCorrect ? `+${points}` : `0`;
+        const color = isCorrect ? 'green' : 'red';
         
-        if (transitionLeft <= 0) {
-            clearInterval(transitionInterval);
-            
-            topBarTimer.textContent = `⏱`;
+        listItem.innerHTML = `<strong>${username}</strong> <span style="color:${color}">${resultText}</span>`;
+        playerScoresList.appendChild(listItem);
+    });
 
-            
-            buttons.forEach((button) => {
-                button.style.backgroundColor = ''; 
-            });
-        }
-    }, 1000);
+    afterQuestionContainer.style.display = 'flex';
+    setTimeout(() => {
+        afterQuestionContainer.style.display = 'none';
+    }, transitionTime * 1000);
 });
-
 
 function disableButtons() {
     if (buttonsDisabled) return;
@@ -333,31 +288,6 @@ function disableButtons() {
     const buttons = optionsContainer.querySelectorAll('button');
     buttons.forEach((button) => (button.disabled = true));
 }
-
-socket.on('after-question', ({ correctAnswer, playerScores }) => {
-    const correctAnswerElement = document.getElementById('correct-answer');
-    correctAnswerElement.textContent = `The correct answer was ${correctAnswer}`;
-    const playerScoresList = document.getElementById('player-scores');
-    playerScoresList.innerHTML = '';
-
-    playerScores.forEach(([player, { isCorrect, timeTaken, points }]) => {
-        const listItem = document.createElement('li');
-        const resultText = isCorrect ? `+${points}` : `0`;
-        const color = isCorrect ? 'green' : 'red';
-        const timeInfo = timeTaken !== 'No Answer' ? ` | Time: ${timeTaken} seconds` : ' | No Answer';
-        
-        listItem.innerHTML = `<strong>${player}</strong> <span style="color:${color}">${resultText}</span>`;
-        playerScoresList.appendChild(listItem);
-    });
-    const afterQuestionContainer = document.getElementById('after-question-container');
-    afterQuestionContainer.style.display = 'flex';
-    setTimeout(() => {
-        afterQuestionContainer.style.display = 'none';
-    }, 5000);
-});
-
-
-
 
 
 form.addEventListener('submit', (e) => {
@@ -370,18 +300,7 @@ form.addEventListener('submit', (e) => {
     messageInput.value = '';
 });
 
-
-
-function displayMessage(text, type, isEven) {
-    
-    function formatMessage(message, maxChar) {
-        return message.replace(new RegExp(`(.{${maxChar}})`, 'g'), '$1 ');
-    }
-
-    
-    const formattedText = formatMessage(text, 20);
-
-    
+function displayMessage(text, type, isEven) {    
     const div = document.createElement('div');
     div.className = 'chat-message';
     div.innerHTML = text; 
@@ -399,7 +318,6 @@ function displayMessage(text, type, isEven) {
             break;
         default:
             div.style.backgroundColor = isEven ? '#e0e0e0' : '#f9f9f9';
-            div.innerHTML = formattedText;
     }
 
     const messageContainer = document.getElementById('message-container');

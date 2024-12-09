@@ -20,21 +20,7 @@ const io = new Server(server, {
     },
 });
 
-let currentQuestion = null; 
-
-let gameTimer = null;
-let questionTimeout = null; 
-let mainTimerEnded = false;
-let totalQuestions = 1; 
-let currentQuestionNumber = 0; 
-let timeLeft = 15;
-const chatLog = [];
-const scores = {};
-const avatars = {};
-let currentScreen = null; 
-let afterQuestionData = null; 
-let gameOverData = null; 
-
+let totalQuestions = 1;
 const sessionMiddleware = session({
     secret: 'your-secret-key', 
     resave: false,
@@ -104,365 +90,516 @@ const triviaQuestions = [
     { question: 'Who painted the Starry Night?', options: ['Van Gogh', 'Da Vinci', 'Picasso', 'Monet'], answer: 'Van Gogh' },
 ];
 
-let playersAnswered = {};
+const lobbies = []; // Array to store public lobbies
+const maxPlayersPerLobby = 2; // Max players per lobby
 io.on('connection', (socket) => {
-    let username = socket.request.session.username;
-
-    username = sanitizeHtml(username, {
-        allowedTags: [], 
-        allowedAttributes: {}, 
+    const username = sanitizeHtml(socket.request.session.username || '', {
+        allowedTags: [],
+        allowedAttributes: {},
     });
-    if (!socket.request.session.usernameValidated) {
-        const usernameExists = Object.values(users).includes(username);
 
-        if (usernameExists) {
-            socket.emit('username-exists');
-            return;
-        }
-
-        socket.request.session.usernameValidated = true;
-        socket.request.session.save();
-    }
-    
     if (!username) {
-        console.log('Connection without username, disconnecting socket');
+        console.error('Connection attempt without username.');
         socket.disconnect();
         return;
     }
 
+    users[socket.id] = username;
+
     socket.on('join-game', (avatar) => {
-        avatars[username] = avatar; 
-        console.log(`User ${username} joined with avatar: ${avatar}`);
-        io.emit('update-leaderboard', scores, avatars);
+        handleJoinGame(socket, avatar);
     });
-    if (!scores[username]) {
-        scores[username] = 0;
-    }
-
-    io.emit('update-leaderboard', scores, avatars);
-
-
-    const existingSocketId = Object.keys(users).find(
-        (id) => users[id] === username
-    );
-
-    let isNewUser = false;
-    if (existingSocketId && existingSocketId !== socket.id) {
-        console.log(`Removing old socket ID for ${username}: ${existingSocketId}`);
-        delete users[existingSocketId];
-    }else if (!disconnectedUsers[username]){
-        isNewUser = true;
-    }
-
-    if(disconnectedUsers[username]){
-        clearTimeout(disconnectedUsers[username].timeout);
-        delete disconnectedUsers[username];
-    }
-    users[socket.id] = username; 
-    
-    if(isNewUser){
-        if(Object.keys(users).length > 1){
-            setTimeout(() => {
-                io.emit('received-message', {
-                    name: 'System',
-                    message: `${username} has joined the lobby!`,
-                })
-                chatLog.push({ name: 'System', message: `${username} has joined the lobby!`, type: 'join' });
-            }, 50)
-        } else {
-            io.emit('received-message', {
-                name: 'System',
-                message: `${username} has joined the lobby!`,
-            });
-            chatLog.push({ name: 'System', message: `${username} has joined the lobby!`, type: 'join' });
-
-        }
-        
-        
-    };
-        
-   
-    const playerAnswer = playersAnswered[username]?.answer || null;
-    if (currentQuestion && timeLeft !== undefined) {
-        let transitionTimeLeft = null;
-        if (mainTimerEnded) {
-        const timeSinceMainEnded = 15 - timeLeft;
-        transitionTimeLeft = Math.max(5 - timeSinceMainEnded, 0);
-        }
-        
-        socket.emit('restore-state', {
-            currentQuestion,
-            timeLeft,
-            playerAnswer,
-            mainTimerEnded,
-            transitionTimeLeft,
-            chatLog,
-            totalQuestions,
-            currentQuestionNumber,
-            currentScreen, 
-            afterQuestionData, 
-            gameOverData
-        });
-    } else {
-        console.log('Starting new game...');
-        sendQuestion(); 
-    }
-
-    
-    socket.on('submit-answer', (answer) => {
-        const username = users[socket.id];
-        if (!username) return;
-
-
-        if (playersAnswered[username]) {
-            console.log(`User ${username} already answered. Ignoring.`);
-            return;
-        }
-
-        const isCorrect = answer === currentQuestion?.answer;
-        const timeTaken = 15 - timeLeft; 
-
-        if (isCorrect) {
-            const basePoints = 100;
-            const bonusPoints = timeLeft * 10; 
-            const totalPoints = basePoints + bonusPoints;
-            scores[username] += totalPoints;
-            playersAnswered[username] = { answer, isCorrect, timeTaken, points: totalPoints };
-        } else {
-            playersAnswered[username] = { answer, isCorrect, timeTaken, points: 0 };
-        }
-
-        const buttonStates = currentQuestion.options.map((option) => {
-            return {
-                text: option,
-                isCorrect: option === currentQuestion.answer,
-                isSelected: option === answer,
-            };
-        });
-    
-        socket.emit('update-button-states', buttonStates);
-        io.emit('received-message', {
-            name: 'System',
-            message: `${username} answered in ${timeTaken} seconds.`,
-        });
-        chatLog.push({ name: 'System', message: `${username} answered in ${timeTaken} seconds.`, type: 'answer' });
-        io.emit('update-leaderboard', scores, avatars);
-        if (Object.keys(playersAnswered).length === Object.keys(users).length) {
-            clearInterval(gameTimer);
-            mainTimerEnded = true; 
-
-            io.emit('question-ended', {
-                correctAnswer: currentQuestion.answer,
-                transitionTime: 5,
-            });
-            
-
-            afterQuestionData = {};
-            Object.keys(users).forEach((socketId) => {
-                const username = users[socketId]; 
-                const playerData = playersAnswered[username] || { isCorrect: false, timeTaken: 'No Answer', points: 0 }; // Default for non-respondents
-
-                afterQuestionData[username] = {
-                    isCorrect: playerData.isCorrect,
-                    timeTaken: playerData.timeTaken,
-                    points: playerData.points,
-                };
-            });
-
-            const sortedPlayerData = Object.entries(afterQuestionData).sort(([, a], [, b]) => b.points - a.points);
-
-            io.emit('after-question', {
-                correctAnswer: currentQuestion.answer,
-                playerScores: sortedPlayerData,
-            });
-            currentScreen = "after-question";
-            afterQuestionData = {
-                correctAnswer: currentQuestion.answer,
-                playerScores: sortedPlayerData,
-            };
-            setTimeout(sendQuestion, 5000); 
-        }
-    });
-
-    socket.on('rejoin', (username, callback) => {
-        console.log(`--- Rejoin Attempt by ${username} ---`);
-        if (!username) {
-            return;
-        }
-
-
-        const existingSocketId = Object.keys(users).find(
-            (id) => users[id] === username
-        );
-        if (existingSocketId) {
-            console.log(`Removing old socket ID for ${username}: ${existingSocketId}`);
-            delete users[existingSocketId];
-        }
-
-
-        users[socket.id] = username;
-        const playerAnswer = playersAnswered[username]?.answer || null;
-
-        if (currentQuestion && timeLeft !== undefined) {
-            console.log('Restoring game state for:', username);
-            callback({
-                currentQuestion,
-                timeLeft,
-                playerAnswer,
-                mainTimerEnded,
-            });
-        } else {
-            console.log('No active state. Starting new game...');
-            sendQuestion();
-        }
-
-        
-    });
-
-    socket.on('send-message', (message) => {
-        const name = users[socket.id];
-        const sanitizedMessage = sanitizeHtml(message, {
-            allowedTags: [], 
-            allowedAttributes: {}, 
-        });
-        if (sanitizedMessage.trim() === '') {
-            console.log('Empty or invalid message ignored');
-            return;
-        }
-        io.emit('received-message', { name, message: sanitizedMessage , type: 'regular' });
-        chatLog.push({name,message: sanitizedMessage });
-    });
-
-    socket.on('disconnect', () => {
-        const username = users[socket.id];
-        if (username) {
-            console.log(`User disconnected: ${username}`);
-            disconnectedUsers[username] = {
-                timeout: setTimeout(() => {
-                    console.log(`User ${username} did not reconnect. Removing Fully`);
-                    delete users[socket.id]; 
-                    delete disconnectedUsers[username];
-                    delete avatars[username];
-                    io.emit('received-message', {
-                        name: 'System',
-                        message: `${username} has left the lobby.`,
-                    });
-                    chatLog.push({ name: 'System', message: `${username} has left the lobby.`, type: 'leave' });
-
-                    io.emit('remove-player', { username });
-                    delete scores[username];
-                }, 2000)
-            }
-            
-        }
-    });
+    socket.on('request-sync', () => handleRequestSync(socket));
+    socket.on('submit-answer', (answer) => handleSubmitAnswer(socket, answer));
+    socket.on('send-message', (message) => handleSendMessage(socket, message));
+    socket.on('disconnect', () => handleDisconnect(socket));
+    socket.on('reconnect', () => handleReconnect(socket));
 });
 
 
-
-const sendQuestion = () => {
-    currentQuestionNumber++;
-    mainTimerEnded = false;
-    currentScreen = '';
-    if (currentQuestionNumber > totalQuestions) {
-        const sortedScores = Object.entries(scores).sort(([, a], [, b]) => b - a);
-        const winner = sortedScores.length > 0 ? sortedScores[0][0] : null; 
-    
-        io.emit('game-over', {
-            winner,
-            finalScores: sortedScores
-        });
-        currentScreen = "game-over";
-        gameOverData = {
-            winner,
-            finalScores: sortedScores,
-        };
-        setTimeout(() => {
-            resetGame();
-        }, 7000);
+function handleJoinGame(socket, avatar) {
+    const username = users[socket.id];
+    if (!username) {
+        console.error('Failed to join game: Username is undefined or invalid.');
         return;
     }
 
-    if (gameTimer) clearInterval(gameTimer); 
-    if (questionTimeout) clearTimeout(questionTimeout); 
+    // Ensure no duplicate socket IDs in any lobby
+    let lobby = lobbies.find((lobby) =>
+        lobby.players.some((player) => player.socketId === socket.id)
+    );
 
-    playersAnswered = {};
+    // Check for username conflict in existing lobbies
+    const usernameConflict = lobbies.some((lobby) =>
+        lobby.players.some((player) => player.username === username)
+    );
 
+    if (!lobby) {
+        if (usernameConflict) {
+            // Create a new lobby if username conflicts
+            lobby = {
+                id: `Lobby-${lobbies.length + 1}`,
+                players: [],
+                chatLog: [],
+                scores: {},
+                avatars: {},
+                playersAnswered: {},
+                leaderboard: {},
+                currentQuestion: null,
+                currentQuestionNumber: 0,
+                timeLeft: 15,
+                mainTimerEnded: false,
+                gameTimer: null,
+                questionTimeout: null,
+            };
+            lobbies.push(lobby);
+            console.log(`Created new lobby due to username conflict: ${lobby.id}`);
+        } else {
+            // Try to join an open lobby
+            lobby = lobbies.find((lobby) => lobby.players.length < maxPlayersPerLobby);
+            if (!lobby) {
+                // Create a new lobby if none are open
+                lobby = {
+                    id: `Lobby-${lobbies.length + 1}`,
+                    players: [],
+                    chatLog: [],
+                    scores: {},
+                    avatars: {},
+                    playersAnswered: {},
+                    leaderboard: {},
+                    currentQuestion: null,
+                    currentQuestionNumber: 0,
+                    timeLeft: 15,
+                    mainTimerEnded: false,
+                    gameTimer: null,
+                    questionTimeout: null,
+                };
+                lobbies.push(lobby);
+                console.log('Created new lobby:', lobby.id);
+            }
+        }
+    }
 
-    const randomIndex = Math.floor(Math.random() * triviaQuestions.length);
-    currentQuestion = triviaQuestions[randomIndex];
+    // Add the player to the lobby
+    lobby.players.push({ socketId: socket.id, username, avatar });
+    lobby.scores[socket.id] = lobby.scores[socket.id] || 0;
+    lobby.avatars[socket.id] = avatar;
+    console.log(`${username} joined lobby: ${lobby.id}`);
+    socket.join(lobby.id);
 
-
-    io.emit('new-question', {
-        question: currentQuestion.question,
-        options: currentQuestion.options,
-        questionNumber: currentQuestionNumber, 
-        totalQuestions: totalQuestions, 
+    // Sync the joining player with the current lobby state
+    socket.emit('sync-lobby', {
+        currentQuestion: lobby.currentQuestion,
+        timeLeft: lobby.timeLeft,
+        currentQuestionNumber: lobby.currentQuestionNumber,
+        totalQuestions,
+        chatLog: lobby.chatLog,
+        scores: lobby.scores,
+        avatars: lobby.avatars,
     });
 
- 
-    timeLeft = 15;
-    gameTimer = setInterval(() => {
-        timeLeft--;
-        io.emit('update-timer', timeLeft); 
+    // Notify other players in the lobby
+    const joinMessage = `${username} has joined ${lobby.id}!`;
+    lobby.chatLog.push({ name: 'System', message: joinMessage, type: 'join' });
+    io.to(lobby.id).emit('received-message', {
+        name: 'System',
+        message: joinMessage,
+        type: 'join',
+    });
 
-        if (timeLeft <= 0) {
-            clearInterval(gameTimer); 
-            mainTimerEnded = true;
-            io.emit('question-ended', {
-                correctAnswer: currentQuestion.answer,
-                transitionTime: 5,
+    // Broadcast updated leaderboard immediately
+    broadcastLeaderboard(lobby);
+
+    // Start the game if it's the first player in the lobby
+    if (lobby.players.length === 1) {
+        sendQuestion(lobby);
+    }
+}
+
+function handleRequestSync(socket) {
+    const username = users[socket.id];
+    if (!username) return;
+
+    const lobby = lobbies.find((lobby) =>
+        lobby.players.some((player) => player.socketId === socket.id)
+    );
+
+    if (!lobby) {
+        console.error(`No lobby found for user: ${username}`);
+        return;
+    }
+
+    // Sync leaderboard and avatars specific to this lobby
+    const syncedScores = lobby.players.reduce((acc, player) => {
+        acc[player.username] = lobby.scores[player.username] || 0;
+        return acc;
+    }, {});
+
+    const syncedAvatars = lobby.players.reduce((acc, player) => {
+        acc[player.username] = player.avatar;
+        return acc;
+    }, {});
+
+    socket.emit('update-leaderboard', syncedScores, syncedAvatars);
+
+    // Sync chat log specific to this lobby
+    socket.emit('sync-chat', lobby.chatLog);
+}
+
+function handleSubmitAnswer(socket, answer) {
+    const username = users[socket.id]; // Get username tied to socket ID
+    if (!username) return;
+
+    const lobby = lobbies.find((lobby) =>
+        lobby.players.some((player) => player.socketId === socket.id)
+    );
+
+    if (!lobby) {
+        console.log(`No lobby found for user: ${username}`);
+        return;
+    }
+
+    if (lobby.playersAnswered[socket.id]) {
+        console.log(`User ${username} already answered. Ignoring.`);
+        return;
+    }
+
+    // Debugging: Log the current question and answer
+    console.log('Submitted Answer:', answer);
+    console.log('Correct Answer:', lobby.currentQuestion?.answer);
+
+    // Ensure both the submitted answer and the correct answer are trimmed and case-insensitive
+    const submittedAnswer = answer?.trim().toLowerCase();
+    const correctAnswer = lobby.currentQuestion?.answer.trim().toLowerCase();
+    const isCorrect = submittedAnswer === correctAnswer;
+
+    console.log(`Is Correct: ${isCorrect}`); // Debug: Check if the comparison works as expected
+
+    const timeTaken = 15 - lobby.timeLeft;
+
+    // Update scores and mark the user as answered
+    if (isCorrect) {
+        const basePoints = 100;
+        const bonusPoints = lobby.timeLeft * 10;
+        const totalPoints = basePoints + bonusPoints;
+
+        lobby.scores[socket.id] = (lobby.scores[socket.id] || 0) + totalPoints;
+        lobby.playersAnswered[socket.id] = { answer, isCorrect, timeTaken, points: totalPoints };
+    } else {
+        // Mark player as answered with 0 points for incorrect answer
+        lobby.playersAnswered[socket.id] = { answer, isCorrect, timeTaken, points: 0 };
+    }
+
+    // Update button states and emit to client
+    const buttonStates = lobby.currentQuestion.options.map((option) => ({
+        text: option,
+        isCorrect: option === lobby.currentQuestion.answer,
+        isSelected: option === answer,
+    }));
+
+    socket.emit('update-button-states', buttonStates);
+
+    // Emit system message for the answer
+    io.to(lobby.id).emit('received-message', {
+        name: 'System',
+        message: `${username} answered in ${timeTaken} seconds.`,
+    });
+
+    lobby.chatLog.push({ name: 'System', message: `${username} answered in ${timeTaken} seconds.`, type: 'answer' });
+    broadcastLeaderboard(lobby);
+
+    // Check if all players have answered
+    if (Object.keys(lobby.playersAnswered).length === lobby.players.length) {
+        console.log(`All players have answered in lobby ${lobby.id}. Stopping the timer.`);
+        clearInterval(lobby.gameTimer); // Stop the timer immediately
+        endQuestion(lobby); // Proceed to end the question
+    }
+}
+
+
+
+
+
+
+
+function handleDisconnect(socket) {
+    const username = users[socket.id];
+    if (!username) return;
+
+
+    const lobby = lobbies.find((lobby) =>
+        lobby.players.some((player) => player.socketId === socket.id)
+    );
+
+    if (lobby) {
+        // Remove the player from the lobby
+        lobby.players = lobby.players.filter(
+            (player) => player.username !== username
+        );
+
+        const leaveMessage = `${username} has left the lobby!`;
+        lobby.chatLog.push({
+            name: 'System',
+            message: leaveMessage,
+            type: 'leave',
+        });
+
+        io.to(lobby.id).emit('received-message', {
+            name: 'System',
+            message: leaveMessage,
+            type: 'join',
+        });
+        // If the lobby is empty, remove it
+        if (lobby.players.length === 0) {
+            clearLobbyTimers(lobby);
+            console.log(`Deleted empty lobby: ${lobby.id}`);
+            lobbies.splice(lobbies.indexOf(lobby), 1);
+        } else {
+            // Otherwise, update the leaderboard
+            broadcastLeaderboard(lobby);
+        }
+    }
+
+    // Remove the user from the users list
+    delete users[socket.id];
+}
+
+
+
+function handleSendMessage(socket, message) {
+    const username = users[socket.id];
+    const lobby = lobbies.find((lobby) =>
+        lobby.players.some((player) => player.socketId === socket.id)
+    );
+
+    if (!lobby) {
+        console.error(`Send message failed: No lobby found for user: ${username}`);
+        return;
+    }
+
+    const sanitizedMessage = sanitizeHtml(message, { allowedTags: [], allowedAttributes: {} });
+    if (sanitizedMessage.trim() === '') return;
+
+    const chatMessage = { name: username, message: sanitizedMessage, type: 'regular' };
+    lobby.chatLog.push(chatMessage);
+    io.to(lobby.id).emit('received-message', chatMessage);
+}
+
+function handleReconnect(socket) {
+    const username = socket.request.session.username;
+    if (disconnectedUsers[username]) {
+        clearTimeout(disconnectedUsers[username].timeout);
+        delete disconnectedUsers[username];
+        console.log(`User ${username} successfully reconnected.`);
+
+        const lobby = lobbies.find((lobby) =>
+            lobby.players.some((player) => player.username === username)
+        );
+
+        if (lobby) {
+            console.log(`${username} rejoined lobby: ${lobby.id}`);
+            socket.join(lobby.id);
+
+            // Sync full lobby state with the reconnected user
+            socket.emit('sync-lobby', {
+                chatLog: lobby.chatLog,
+                scores: lobby.scores,
+                avatars: lobby.avatars,
+                currentQuestion: lobby.currentQuestion,
+                timeLeft: lobby.timeLeft,
+                currentQuestionNumber: lobby.currentQuestionNumber,
+                totalQuestions: totalQuestions,
             });
-            let afterQuestionData = {};
 
-            Object.keys(users).forEach((socketId) => {
-                const username = users[socketId];
-                const playerData = playersAnswered[username] || { isCorrect: false, timeTaken: 'No Answer', points: 0 }; // Default for non-respondents
+            // Broadcast the leaderboard to reinitialize CSS
+            broadcastLeaderboard(lobby);
 
-                afterQuestionData[username] = {
-                    isCorrect: playerData.isCorrect,
-                    timeTaken: playerData.timeTaken,
-                    points: playerData.points,
-                };
-            });
+            // If a timer is running, reinitialize it for the client
+            if (lobby.timeLeft > 0) {
+                socket.emit('update-timer', lobby.timeLeft);
+            }
+        } else {
+            console.error(`No lobby found for reconnected user: ${username}`);
+        }
+    }
+}
 
-            const sortedPlayerData = Object.entries(afterQuestionData).sort(([, a], [, b]) => b.points - a.points);
 
-            io.emit('after-question', {
-                correctAnswer: currentQuestion.answer,
-                playerScores: sortedPlayerData,
-            });
-            currentScreen = 'after-question';
-            afterQuestionData = {
-                correctAnswer: currentQuestion.answer,
-                playerScores: sortedPlayerData,
-            };
-            
-            questionTimeout = setTimeout(() => {
-                sendQuestion();
-            }, 5000);
+function broadcastLeaderboard(lobby) {
+    const updatedScores = lobby.players.reduce((acc, player) => {
+        const { socketId, username } = player;
+        acc[username] = lobby.scores[socketId] || 0; // Use socketId for scores
+        return acc;
+    }, {});
+
+    const updatedAvatars = lobby.players.reduce((acc, player) => {
+        acc[player.username] = player.avatar; // Use username for avatars
+        return acc;
+    }, {});
+
+    io.to(lobby.id).emit('update-leaderboard', updatedScores, updatedAvatars);
+}
+
+
+const sendQuestion = (lobby) => {
+    if (!lobby) {
+        console.error("sendQuestion called with undefined lobby");
+        return;
+    }
+
+    if (lobby.gameTimer) {
+        clearInterval(lobby.gameTimer);
+    }
+    lobby.currentQuestionNumber++;
+    lobby.timeLeft = 15;
+
+    if (lobby.currentQuestionNumber > totalQuestions) {
+        // Properly map scores using socket IDs
+        const sortedScores = lobby.players.map((player) => ({
+            username: player.username,
+            score: lobby.scores[player.socketId] || 0, // Use socketId for scores
+        })).sort((a, b) => b.score - a.score); // Sort descending by score
+
+        const finalScores = sortedScores.map((player) => [player.username, player.score]);
+
+        console.log('Here Are the finalScores variable: ', finalScores);
+
+        const winner = sortedScores.length ? sortedScores[0].username : null;
+
+        io.to(lobby.id).emit('game-over', {
+            winner,
+            finalScores, 
+        });
+
+        resetGame(lobby);
+        return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * triviaQuestions.length);
+    lobby.currentQuestion = triviaQuestions[randomIndex];
+
+    io.to(lobby.id).emit('new-question', {
+        question: lobby.currentQuestion.question,
+        options: lobby.currentQuestion.options,
+        questionNumber: lobby.currentQuestionNumber,
+        totalQuestions,
+    });
+
+    broadcastLeaderboard(lobby);
+
+    lobby.gameTimer = setInterval(() => {
+        lobby.timeLeft--;
+        io.to(lobby.id).emit('update-timer', lobby.timeLeft);
+
+        if (lobby.timeLeft <= 0) {
+            clearInterval(lobby.gameTimer);
+            endQuestion(lobby);
         }
     }, 1000);
 };
-function resetGame() {
-    currentQuestion = null; 
-    currentQuestionNumber = 0; 
-    playersAnswered = {}; 
-    Object.keys(scores).forEach((player) => {
-        scores[player] = 0;
-    });
-    io.emit('game-over', {
-        message: "The game has been reset! A new round will start shortly...",
-        chatLog, 
-        scores,  
-    });
-    currentScreen = '';
-    afterQuestionData = null;
-    gameOverData = null;
-    sendQuestion();
-    io.emit('reset-game'); 
-    io.emit('update-leaderboard', scores, avatars);
+
+
+function clearLobbyTimers(lobby) {
+    if (lobby.gameTimer) {
+        clearInterval(lobby.gameTimer);
+        lobby.gameTimer = null;
+    }
+    if (lobby.questionTimeout) {
+        clearTimeout(lobby.questionTimeout);
+        lobby.questionTimeout = null;
+    }
 }
+
+
+const endQuestion = (lobby) => {
+    clearTimeout(lobby.questionTimeout);
+
+    const playerScores = lobby.players.map((player) => {
+        const { socketId, username } = player;
+
+        if (lobby.playersAnswered[socketId]) {
+            const { isCorrect, timeTaken, points } = lobby.playersAnswered[socketId];
+            return {
+                username, // Use username for display
+                isCorrect,
+                timeTaken: timeTaken || 'No Answer',
+                points: points || 0,
+            };
+        } else {
+            return {
+                username,
+                isCorrect: false,
+                timeTaken: 'No Answer',
+                points: 0,
+            };
+        }
+    });
+
+    io.to(lobby.id).emit('question-ended', {
+        correctAnswer: lobby.currentQuestion.answer,
+        playerScores,
+        transitionTime: 5,
+    });
+
+    lobby.playersAnswered = {};
+    lobby.questionTimeout = setTimeout(() => {
+        sendQuestion(lobby);
+    }, 5000);
+};
+
+
+
+function resetGame(lobby) {
+    if (!lobby) {
+        console.error("resetGame called with undefined lobby");
+        return;
+    }
+
+    console.log(`Resetting game for lobby: ${lobby.id}`);
+
+    // Clear any ongoing timers to prevent overlap
+    if (lobby.gameTimer) {
+        clearInterval(lobby.gameTimer);
+        lobby.gameTimer = null;
+    }
+    if (lobby.questionTimeout) {
+        clearTimeout(lobby.questionTimeout);
+        lobby.questionTimeout = null;
+    }
+
+    clearLobbyTimers(lobby);
+    // Reset the lobby state
+    lobby.currentQuestion = null;
+    lobby.currentQuestionNumber = 0;
+    lobby.playersAnswered = {};
+    lobby.timeLeft = 15;
+
+    // Reset player scores
+    lobby.players.forEach((player) => {
+        lobby.scores[player.socketId] = 0;
+    });
+
+    // Notify players that the game has been reset
+    io.to(lobby.id).emit('reset-game', {
+        message: "The game has been reset! A new round will start shortly...",
+        scores: lobby.scores,
+        chatLog: lobby.chatLog,
+    });
+
+    // Broadcast updated leaderboard
+    broadcastLeaderboard(lobby);
+
+    // Restart the game after a short delay
+    setTimeout(() => {
+        console.log(`Starting a new game for lobby: ${lobby.id}`);
+        sendQuestion(lobby);
+    }, 5000); // Wait 5 seconds before restarting
+}
+
+
+
+
+
 
 server.listen(3000, () => {
     console.log('Server listening on http://localhost:3000');
@@ -494,5 +631,5 @@ app.get('/game', (req, res) => {
     res.render('game', { username });
 });
 app.get('*', (req, res) => {
-    res.render('home');
+    res.render('home', { username: req.session.username });
 });
