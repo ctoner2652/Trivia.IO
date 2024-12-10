@@ -11,9 +11,21 @@ const charCounter = document.getElementById('char-counter');
 
 socket.on('connect', () => {
     const avatar = localStorage.getItem('avatar') || 'default-avatar-url';
-    console.log('Joining game with avatar:', avatar);
-    socket.emit('join-game', avatar);
-})
+
+    // Extract customLobbyId from the current URL if available
+    let customLobbyId = window.location.pathname.split('/')[2] || null;
+    console.log(customLobbyId);
+    if (customLobbyId) {
+        localStorage.setItem('targetLobbyId', customLobbyId); // Ensure it's stored
+    } else {
+        customLobbyId = null; // Set to null for public games
+    }
+
+    console.log('Joining game with customLobbyId Of: ', customLobbyId);
+    socket.emit('join-game', avatar, customLobbyId);
+    localStorage.removeItem('targetLobbyId');
+});
+
 
 if (!localStorage.getItem('username')) {
     window.location.href = '/'; // Redirect to main menu
@@ -59,12 +71,46 @@ socket.on('update-button-states', (buttonStates) => {
     });
 });
 
+socket.on('host-status', ({ isHost }) => {
+    if (isHost) {
+        document.getElementById('waiting-room').style.display = 'block';
+
+        // Enable the start game button only when 2+ players join
+        socket.on('update-player-list', (players) => {
+            const playerList = document.getElementById('player-list');
+            playerList.innerHTML = '';
+            players.forEach((player) => {
+                const li = document.createElement('li');
+                li.textContent = player.username;
+                playerList.appendChild(li);
+            });
+
+            const startButton = document.getElementById('start-game');
+            startButton.disabled = players.length < 2; // Enable only if 2+ players
+        });
+
+        // Add click listener for the start game button
+        document.getElementById('start-game').addEventListener('click', () => {
+            const questionCount = document.getElementById('question-count').value;
+            socket.emit('start-game', { questionCount });
+            document.getElementById('waiting-room').style.display = 'none';
+        });
+
+        // Add click listener for the copy URL button
+        document.getElementById('copy-url').addEventListener('click', () => {
+            const gameUrl = window.location.href;
+            navigator.clipboard.writeText(gameUrl).then(() => {
+                alert("Game URL copied to clipboard!");
+            });
+        });
+    }
+});
+
 
 function displayGameOverScreen(winner, finalScores) {
     const gameOverContainer = document.getElementById('game-over-container');
     const winnerMessage = document.getElementById('winner-message');
     const finalScoresList = document.getElementById('final-scores');
-    console.log(`Here is final scores in displayGameOverScreen `, finalScores);
     // Ensure finalScores is defined and is an array
     if (!Array.isArray(finalScores)) {
         console.error('Invalid finalScores:', finalScores);
@@ -95,7 +141,7 @@ socket.on('received-message', ({ name, message }) => {
             displayMessage(message, 'answer');
         }
     } else {
-        displayMessage(`<span style="font-weight: bold;">${name}</span>: ${message}`, 'regular');
+        displayMessage(`<span style="font-weight: 900;">${name}</span>: ${message}`, 'regular');
     }
 });
 
@@ -124,7 +170,7 @@ socket.on('new-question', ({ question, options, questionNumber, totalQuestions }
     const progressElement = document.querySelector('.progress');
     progressElement.textContent = `Question ${questionNumber} of ${totalQuestions}`;
 
-    topBarTimer.textContent = `⏱ 15 Seconds remaining`;
+    topBarTimer.innerHTML = `<span style="font-weight: 900;">⏱</span> 15 Seconds remaining`;
 });
 
 socket.on('game-over', ({ winner, finalScores }) => {
@@ -141,7 +187,7 @@ socket.on('sync-lobby', ({ currentQuestion, timeLeft, currentQuestionNumber, tot
     const messageContainer = document.getElementById('message-container');
     messageContainer.innerHTML = '';
     chatLog.forEach(({ name, message, type }) => {
-        displayMessage(name === 'System' ? message : `<strong>${name}</strong>: ${message}`, type);
+        displayMessage(name === 'System' ? message : `<span style="font-weight: 900;">${name}</span>: ${message}`, type);
     });
 
     // // Update the leaderboard
@@ -179,7 +225,7 @@ socket.on('sync-lobby', ({ currentQuestion, timeLeft, currentQuestionNumber, tot
         const progressElement = document.querySelector('.progress');
         progressElement.textContent = `Question ${currentQuestionNumber} of ${totalQuestions}`;
 
-        topBarTimer.textContent = `⏱ ${timeLeft} Seconds remaining`;
+        topBarTimer.innerHTML = `<span style="font-weight: 900;">⏱</span> ${timeLeft} Seconds remaining`;
     }
 });
 
@@ -240,7 +286,7 @@ socket.on('remove-player', ({ username }) => {
 
 
 socket.on('update-timer', (timeLeft) => {
-    topBarTimer.textContent = `⏱ ${timeLeft} Seconds remaining`;
+    topBarTimer.innerHTML = `<span style="font-weight: 900;">⏱</span> ${timeLeft} Seconds remaining`;
 });
 socket.on('reset-game', ({ message, scores }) => {
     console.log(message);
@@ -266,7 +312,6 @@ socket.on('question-ended', ({ correctAnswer, playerScores, transitionTime }) =>
 
     correctAnswerElement.textContent = `The correct answer was ${correctAnswer}`;
     playerScoresList.innerHTML = '';
-    console.log('This is what playerScores is: ', playerScores);
     playerScores.forEach(({ username, isCorrect, points }) => {
         const listItem = document.createElement('li');
         const resultText = isCorrect ? `+${points}` : `0`;

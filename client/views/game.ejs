@@ -15,7 +15,7 @@
 <style>
     * {
             font-family: "Zain", sans-serif;
-            font-weight: 700;
+            font-weight: 400;
             font-style: normal;
         }
         html {
@@ -447,6 +447,19 @@
                     <ul id="final-scores"></ul>
                 </div>
                 <button id="restart-button">Return to Main Menu</button>
+            </div>
+            <div id="waiting-room" style="display: none;">
+                <h2>Waiting Room</h2>
+                <p id="waiting-message">Waiting for players to join...</p>
+                <ul id="player-list"></ul>
+                <label for="question-count">Number of Questions:</label>
+                <select id="question-count">
+                    <option value="5" selected>5</option>
+                    <option value="10">10</option>
+                    <option value="15">15</option>
+                </select>
+                <button id="start-game" disabled>Start Game</button>
+                <button id="copy-url">Copy Game URL</button>
             </div>
         </div>
         

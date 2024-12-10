@@ -5,6 +5,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const session = require('express-session');
 const sharedSession = require('express-socket.io-session');
+const { v4: uuidv4 } = require('uuid'); 
 const users = {};
 const disconnectedUsers = {};
 app.set('views', path.join(__dirname, '../client/views'));
@@ -20,7 +21,7 @@ const io = new Server(server, {
     },
 });
 
-let totalQuestions = 1;
+let totalQuestions = 5;
 const sessionMiddleware = session({
     secret: 'your-secret-key', 
     resave: false,
@@ -106,115 +107,135 @@ io.on('connection', (socket) => {
 
     users[socket.id] = username;
 
-    socket.on('join-game', (avatar) => {
-        handleJoinGame(socket, avatar);
+    socket.on('join-game', (avatar, targetLobbyId) => {
+        handleJoinGame(socket, avatar, targetLobbyId);
     });
     socket.on('request-sync', () => handleRequestSync(socket));
     socket.on('submit-answer', (answer) => handleSubmitAnswer(socket, answer));
     socket.on('send-message', (message) => handleSendMessage(socket, message));
     socket.on('disconnect', () => handleDisconnect(socket));
     socket.on('reconnect', () => handleReconnect(socket));
+    socket.on('start-game', ({ questionCount }) => {
+        const lobby = lobbies.find((lobby) =>
+            lobby.players.some((player) => player.socketId === socket.id && player.isHost)
+        );
+    
+        if (!lobby) {
+            console.error("Start game failed: No lobby or you're not the host.");
+            return;
+        }
+    
+        if (lobby.players.length < 2) {
+            socket.emit('error-message', 'You need at least 2 players to start the game.');
+            return;
+        }
+    
+        // Set the number of questions in the lobby and start the game
+        lobby.totalQuestions = questionCount;
+        sendQuestion(lobby); // Start the first question
+    });
 });
 
+function updatePlayerList(lobby) {
+    const players = lobby.players.map((player) => ({
+        username: player.username,
+        isHost: player.isHost,
+    }));
+    io.to(lobby.id).emit('update-player-list', players);
+}
 
-function handleJoinGame(socket, avatar) {
+function handleJoinGame(socket, avatar, targetLobbyId = null) {
     const username = users[socket.id];
     if (!username) {
         console.error('Failed to join game: Username is undefined or invalid.');
         return;
     }
 
-    // Ensure no duplicate socket IDs in any lobby
-    let lobby = lobbies.find((lobby) =>
-        lobby.players.some((player) => player.socketId === socket.id)
-    );
+    // Check if joining a private or public game
+    let lobby = targetLobbyId
+        ? lobbies.find((lobby) => lobby.id === targetLobbyId)
+        : lobbies.find(
+              (lobby) =>
+                  lobby.players.length < maxPlayersPerLobby &&
+                  !lobby.isCustom // Only match public lobbies
+          );
 
-    // Check for username conflict in existing lobbies
-    const usernameConflict = lobbies.some((lobby) =>
-        lobby.players.some((player) => player.username === username)
-    );
+    if (lobby && lobby.players.length >= maxPlayersPerLobby) {
+        console.log(`Lobby ${lobby.id} is full. Cannot join.`);
+        return;
+    }
 
+    // If no suitable lobby exists, create a new one
     if (!lobby) {
-        if (usernameConflict) {
-            // Create a new lobby if username conflicts
-            lobby = {
-                id: `Lobby-${lobbies.length + 1}`,
-                players: [],
-                chatLog: [],
-                scores: {},
-                avatars: {},
-                playersAnswered: {},
-                leaderboard: {},
-                currentQuestion: null,
-                currentQuestionNumber: 0,
-                timeLeft: 15,
-                mainTimerEnded: false,
-                gameTimer: null,
-                questionTimeout: null,
-            };
-            lobbies.push(lobby);
-            console.log(`Created new lobby due to username conflict: ${lobby.id}`);
-        } else {
-            // Try to join an open lobby
-            lobby = lobbies.find((lobby) => lobby.players.length < maxPlayersPerLobby);
-            if (!lobby) {
-                // Create a new lobby if none are open
-                lobby = {
-                    id: `Lobby-${lobbies.length + 1}`,
-                    players: [],
-                    chatLog: [],
-                    scores: {},
-                    avatars: {},
-                    playersAnswered: {},
-                    leaderboard: {},
-                    currentQuestion: null,
-                    currentQuestionNumber: 0,
-                    timeLeft: 15,
-                    mainTimerEnded: false,
-                    gameTimer: null,
-                    questionTimeout: null,
-                };
-                lobbies.push(lobby);
-                console.log('Created new lobby:', lobby.id);
-            }
-        }
+        lobby = {
+            id: targetLobbyId || `Lobby-${lobbies.length + 1}`,
+            players: [],
+            chatLog: [],
+            scores: {},
+            avatars: {},
+            playersAnswered: {},
+            leaderboard: {},
+            currentQuestion: null,
+            totalQuestions: 10,
+            currentQuestionNumber: 0,
+            timeLeft: 15,
+            mainTimerEnded: false,
+            gameTimer: null,
+            questionTimeout: null,
+            isCustom: !!targetLobbyId, // Mark as custom if targetLobbyId exists
+        };
+
+        lobbies.push(lobby);
+        console.log(`Created new ${targetLobbyId ? 'custom' : 'public'} lobby: ${lobby.id}`);
+    }
+
+    if (lobby.players.length >= maxPlayersPerLobby) {
+        console.error(`Lobby ${lobby.id} is full. User ${username} cannot join.`);
+        return;
     }
 
     // Add the player to the lobby
-    lobby.players.push({ socketId: socket.id, username, avatar });
+    const isHost = lobby.isCustom && lobby.players.length === 0;
+    lobby.players.push({ socketId: socket.id, username, avatar, isHost });
     lobby.scores[socket.id] = lobby.scores[socket.id] || 0;
     lobby.avatars[socket.id] = avatar;
-    console.log(`${username} joined lobby: ${lobby.id}`);
+    updatePlayerList(lobby);
+    console.log(`${username} joined lobby: ${lobby.id} ${isHost ? " as Host": ''}`);
     socket.join(lobby.id);
 
+    if(isHost){
+        socket.emit('host-status', {isHost: true});
+    }
     // Sync the joining player with the current lobby state
     socket.emit('sync-lobby', {
         currentQuestion: lobby.currentQuestion,
         timeLeft: lobby.timeLeft,
         currentQuestionNumber: lobby.currentQuestionNumber,
-        totalQuestions,
+        totalQuestions: lobby.totalQuestions,
         chatLog: lobby.chatLog,
         scores: lobby.scores,
         avatars: lobby.avatars,
     });
 
-    // Notify other players in the lobby
-    const joinMessage = `${username} has joined ${lobby.id}!`;
-    lobby.chatLog.push({ name: 'System', message: joinMessage, type: 'join' });
+    
+    
     io.to(lobby.id).emit('received-message', {
         name: 'System',
-        message: joinMessage,
+        message: `${username} has joined ${lobby.id}!`,
         type: 'join',
     });
 
-    // Broadcast updated leaderboard immediately
     broadcastLeaderboard(lobby);
 
-    // Start the game if it's the first player in the lobby
-    if (lobby.players.length === 1) {
+    if (!lobby.isCustom && lobby.players.length === 1) {
         sendQuestion(lobby);
     }
 }
+
+
+
+
+
 
 function handleRequestSync(socket) {
     const username = users[socket.id];
@@ -359,7 +380,9 @@ function handleDisconnect(socket) {
             broadcastLeaderboard(lobby);
         }
     }
-
+    if (lobby) {
+        updatePlayerList(lobby);
+    }
     // Remove the user from the users list
     delete users[socket.id];
 }
@@ -452,8 +475,7 @@ const sendQuestion = (lobby) => {
     }
     lobby.currentQuestionNumber++;
     lobby.timeLeft = 15;
-
-    if (lobby.currentQuestionNumber > totalQuestions) {
+    if (lobby.currentQuestionNumber > lobby.totalQuestions) {
         // Properly map scores using socket IDs
         const sortedScores = lobby.players.map((player) => ({
             username: player.username,
@@ -482,7 +504,7 @@ const sendQuestion = (lobby) => {
         question: lobby.currentQuestion.question,
         options: lobby.currentQuestion.options,
         questionNumber: lobby.currentQuestionNumber,
-        totalQuestions,
+        totalQuestions: lobby.totalQuestions,
     });
 
     broadcastLeaderboard(lobby);
@@ -514,26 +536,31 @@ function clearLobbyTimers(lobby) {
 const endQuestion = (lobby) => {
     clearTimeout(lobby.questionTimeout);
 
-    const playerScores = lobby.players.map((player) => {
-        const { socketId, username } = player;
+    const playerScores = [];
 
-        if (lobby.playersAnswered[socketId]) {
-            const { isCorrect, timeTaken, points } = lobby.playersAnswered[socketId];
-            return {
-                username, // Use username for display
+    for (let player of lobby.players) {
+        const username = player.username;
+
+        if (lobby.playersAnswered[player.socketId]) {
+            const { isCorrect, timeTaken, points } = lobby.playersAnswered[player.socketId];
+            playerScores.push({
+                username,
                 isCorrect,
                 timeTaken: timeTaken || 'No Answer',
                 points: points || 0,
-            };
+            });
         } else {
-            return {
+            playerScores.push({
                 username,
                 isCorrect: false,
                 timeTaken: 'No Answer',
                 points: 0,
-            };
+            });
         }
-    });
+    }
+
+    // Sort scores in descending order based on points
+    playerScores.sort((a, b) => b.points - a.points);
 
     io.to(lobby.id).emit('question-ended', {
         correctAnswer: lobby.currentQuestion.answer,
@@ -541,11 +568,13 @@ const endQuestion = (lobby) => {
         transitionTime: 5,
     });
 
+    // Reset playersAnswered and transition to the next question after 5 seconds
     lobby.playersAnswered = {};
     lobby.questionTimeout = setTimeout(() => {
         sendQuestion(lobby);
     }, 5000);
 };
+
 
 
 
@@ -605,31 +634,110 @@ server.listen(3000, () => {
     console.log('Server listening on http://localhost:3000');
 });
 app.post('/game', (req, res) => {
-    let { name } = req.body;
+    const { name } = req.body;
+
+    if (!name || name.trim() === '') {
+        console.log('Rejected: No username provided.');
+        return res.redirect('/'); // Redirect to the main menu
+    }
+
+    req.session.username = name.trim().substring(0, 12);
+    const targetLobbyId = req.query.lobbyId || req.session.targetLobbyId;
+    console.log('Here is the targetLobbyId: ', targetLobbyId);
+    req.session.targetLobbyId = null;
+    if (targetLobbyId) {
+        // If a targetLobbyId exists, join the private lobby
+        req.session.save((err) => {
+            if (err) {
+                console.error('Session save error:', err);
+                return res.redirect('/');
+            }
+            res.redirect(`/game/${targetLobbyId}`);
+            
+        });
+    } else {
+        // Otherwise, join or create a public lobby
+        req.session.save((err) => {
+            if (err) {
+                console.error('Session save error:', err);
+                return res.redirect('/');
+            }
+            res.redirect('/game'); // Public game
+        });
+    }
+    req.session.targetLobbyId = null;
+});
+
+
+
+
+app.get('/game', (req, res) => {
+    if (!req.session.username) {
+        return res.redirect('/');
+    }
+    // Render the game page without specifying a lobbyId
+    res.render('game', { username: req.session.username, lobbyId: null });
+});
+app.get('/game/:lobbyId', (req, res) => {
+    const { lobbyId } = req.params;
+
+    if (!req.session.username) {
+        req.session.targetLobbyId = lobbyId; // Save the target lobby for when they submit the form
+        console.log("Redirecting back to main menu with lobby ID: ", lobbyId);
+        return res.redirect('/'); // Redirect them to the main menu
+    }
+
+    res.render('game', { username: req.session.username, lobbyId });
+});
+
+app.get('*', (req, res) => {
+    res.render('home', { username: req.session.username });
+});
+
+
+
+app.post('/create-custom-game', (req, res) => {
+    console.log('am fired');
+    const { name } = req.body;
 
     if (!name || name.trim() === '') {
         return res.redirect('/');
     }
 
-    name = name.trim().substring(0, 12); 
-    req.session.username = name;
+    req.session.username = name.trim().substring(0, 12);
+
+    // Generate a new custom lobby
+    const lobbyId = `Lobby-${uuidv4()}`;
+    const lobby = {
+        id: lobbyId,
+        players: [],
+        chatLog: [],
+        scores: {},
+        avatars: {},
+        playersAnswered: {},
+        leaderboard: {},
+        currentQuestion: null,
+        currentQuestionNumber: 0,
+        timeLeft: 15,
+        mainTimerEnded: false,
+        gameTimer: null,
+        questionTimeout: null,
+        isCustom: true,
+    };
+
+    lobbies.push(lobby);
+    console.log('Created custom lobby:', lobby.id);
 
     req.session.save((err) => {
         if (err) {
             console.error('Session save error:', err);
             return res.redirect('/');
         }
-        res.redirect('/game');
+        res.redirect(`/game/${lobbyId}`);
     });
 });
-app.get('/game', (req, res) => {
-    const username = req.session.username;
 
-    if (!username) {
-        return res.redirect('/');
-    }
-    res.render('game', { username });
-});
-app.get('*', (req, res) => {
-    res.render('home', { username: req.session.username });
-});
+
+
+
+

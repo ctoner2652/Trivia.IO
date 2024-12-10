@@ -256,22 +256,57 @@
                     </div>
                   </div>
                 <button type="submit" class="play-button">Play!</button>
-                <button type="button" class="create-room-button">Create Private Room</button>
+            </form>
+            <form id='custom-form' action="/create-custom-game" method="post">
+            <input type="hidden" name="name" id="hidden-username">
+            <button type="submit" class="create-room-button">Create Private Room</button>
             </form>
         </main>
     </div>
     <canvas id="background-canvas"></canvas>
     <script>
-        document.getElementById('name-form').addEventListener('submit', (e) => {
-            const username = document.getElementById('username').value.trim();
-            const avatar = document.getElementById('avatar');
-            if (username) {
-                localStorage.setItem('username', username);
-                localStorage.setItem('avatar', avatar.src);
-            }
-        });
+    document.getElementById('name-form').addEventListener('submit', (e) => {
+    const username = document.getElementById('username').value.trim();
+    const avatar = document.getElementById('avatar');
+
+    if (!username) {
+        e.preventDefault();
+        alert('Please enter a username.');
+        return;
+    }
+
+    // Save username and avatar locally before submitting
+    localStorage.setItem('username', username);
+    localStorage.setItem('avatar', avatar.src);
+
+    // Let the form handle submission to the server
+    });
+
+
 
         const urlParams = new URLSearchParams(window.location.search);
+        const lobbyId = urlParams.get('lobbyId');
+        if (lobbyId) {
+            localStorage.setItem('targetLobbyId', lobbyId);
+        }
+        
+        document.getElementById('custom-form').addEventListener('submit', (e) => {
+        const username = document.getElementById('username').value.trim();
+        const avatar = document.getElementById('avatar').src;
+
+        if (!username) {
+            e.preventDefault();
+            alert('Please enter a username before creating a private room.');
+            return;
+        }
+
+        // Save the username and avatar in localStorage
+        localStorage.setItem('username', username);
+        localStorage.setItem('avatar', avatar);
+
+        // Update the hidden input value for submission
+        document.getElementById('hidden-username').value = username;
+    });
         const error = urlParams.get('error');
 
         if (error === 'username-taken') {
