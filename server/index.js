@@ -6,6 +6,8 @@ const { Server } = require('socket.io');
 const session = require('express-session');
 const sharedSession = require('express-socket.io-session');
 const { v4: uuidv4 } = require('uuid'); 
+const axios = require('axios');
+const he = require('he'); 
 const users = {};
 const disconnectedUsers = {};
 app.set('views', path.join(__dirname, '../client/views'));
@@ -21,7 +23,6 @@ const io = new Server(server, {
     },
 });
 
-let totalQuestions = 5;
 const sessionMiddleware = session({
     secret: 'your-secret-key', 
     resave: false,
@@ -30,7 +31,6 @@ const sessionMiddleware = session({
 });
 
 app.use(sessionMiddleware);
-
 
 io.use(sharedSession(sessionMiddleware, {
     autoSave: true, 
@@ -91,8 +91,53 @@ const triviaQuestions = [
     { question: 'Who painted the Starry Night?', options: ['Van Gogh', 'Da Vinci', 'Picasso', 'Monet'], answer: 'Van Gogh' },
 ];
 
-const lobbies = []; // Array to store public lobbies
-const maxPlayersPerLobby = 2; // Max players per lobby
+const fetchQuestionsFromAPI = async (amount, category ='any', difficulty = 'any') => {
+    const categoryParam = category !== 'any' ? `&category=${category}` : '';
+    const difficultyParam = difficulty !== 'any' ? `&difficulty=${difficulty}` : '';
+    const url = `https://opentdb.com/api.php?amount=${amount}${categoryParam}${difficultyParam}&type=multiple`;
+    try {
+        const response = await axios.get(url);
+        const data = await response.data;
+
+        if (data.response_code !== 0 || !data.results) {
+            console.error("Failed to fetch trivia questions:", data);
+            return [];
+        }
+
+        if (data.results.length < amount) {
+            console.warn(
+                `Requested ${amount} questions, but only ${data.results.length} are available.`
+            );
+        }
+
+        return data.results.map((item) => ({
+            question: he.decode(item.question), 
+            options: shuffleArray([
+                ...item.incorrect_answers.map(he.decode), 
+                he.decode(item.correct_answer), 
+            ]),
+            answer: he.decode(item.correct_answer), 
+        }));
+    } catch (error) {
+        if (error.response?.status === 429) {
+            console.warn("Rate limit hit. Retrying after 1 second...");
+            await new Promise((resolve) => setTimeout(resolve, 500)); // Wait .5 seconds
+            return fetchQuestionsFromAPI(amount, category, difficulty); 
+        }
+        console.error("Error fetching trivia questions:", error);
+        return [];
+    }
+};
+
+const shuffleArray = (array) => {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+};
+const lobbies = []; 
+const maxPlayersPerLobby = 8; 
 io.on('connection', (socket) => {
     const username = sanitizeHtml(socket.request.session.username || '', {
         allowedTags: [],
@@ -115,7 +160,7 @@ io.on('connection', (socket) => {
     socket.on('send-message', (message) => handleSendMessage(socket, message));
     socket.on('disconnect', () => handleDisconnect(socket));
     socket.on('reconnect', () => handleReconnect(socket));
-    socket.on('start-game', ({ questionCount }) => {
+    socket.on('start-game', ({ questionCount, selectedCategory, selectedDifficulty }) => {
         const lobby = lobbies.find((lobby) =>
             lobby.players.some((player) => player.socketId === socket.id && player.isHost)
         );
@@ -129,10 +174,12 @@ io.on('connection', (socket) => {
             socket.emit('error-message', 'You need at least 2 players to start the game.');
             return;
         }
-    
-        // Set the number of questions in the lobby and start the game
+    ``
+        
         lobby.totalQuestions = questionCount;
-        sendQuestion(lobby); // Start the first question
+        lobby.selectedDifficulty = selectedDifficulty;
+        lobby.selectedCategory = selectedCategory;
+        sendQuestion(lobby); 
     });
 });
 
@@ -151,13 +198,13 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
         return;
     }
 
-    // Check if joining a private or public game
+    
     let lobby = targetLobbyId
         ? lobbies.find((lobby) => lobby.id === targetLobbyId)
         : lobbies.find(
               (lobby) =>
                   lobby.players.length < maxPlayersPerLobby &&
-                  !lobby.isCustom // Only match public lobbies
+                  !lobby.isCustom 
           );
 
     if (lobby && lobby.players.length >= maxPlayersPerLobby) {
@@ -165,7 +212,7 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
         return;
     }
 
-    // If no suitable lobby exists, create a new one
+    
     if (!lobby) {
         lobby = {
             id: targetLobbyId || `Lobby-${lobbies.length + 1}`,
@@ -176,13 +223,14 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
             playersAnswered: {},
             leaderboard: {},
             currentQuestion: null,
-            totalQuestions: 10,
+            totalQuestions: 2,
             currentQuestionNumber: 0,
             timeLeft: 15,
             mainTimerEnded: false,
             gameTimer: null,
             questionTimeout: null,
-            isCustom: !!targetLobbyId, // Mark as custom if targetLobbyId exists
+            isCustom: !!targetLobbyId, 
+            triviaQuestions: [],
         };
 
         lobbies.push(lobby);
@@ -194,7 +242,7 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
         return;
     }
 
-    // Add the player to the lobby
+    
     const isHost = lobby.isCustom && lobby.players.length === 0;
     lobby.players.push({ socketId: socket.id, username, avatar, isHost });
     lobby.scores[socket.id] = lobby.scores[socket.id] || 0;
@@ -206,7 +254,7 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
     if(isHost){
         socket.emit('host-status', {isHost: true});
     }
-    // Sync the joining player with the current lobby state
+    
     socket.emit('sync-lobby', {
         currentQuestion: lobby.currentQuestion,
         timeLeft: lobby.timeLeft,
@@ -232,11 +280,6 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
     }
 }
 
-
-
-
-
-
 function handleRequestSync(socket) {
     const username = users[socket.id];
     if (!username) return;
@@ -250,7 +293,7 @@ function handleRequestSync(socket) {
         return;
     }
 
-    // Sync leaderboard and avatars specific to this lobby
+    
     const syncedScores = lobby.players.reduce((acc, player) => {
         acc[player.username] = lobby.scores[player.username] || 0;
         return acc;
@@ -263,12 +306,12 @@ function handleRequestSync(socket) {
 
     socket.emit('update-leaderboard', syncedScores, syncedAvatars);
 
-    // Sync chat log specific to this lobby
+    
     socket.emit('sync-chat', lobby.chatLog);
 }
 
 function handleSubmitAnswer(socket, answer) {
-    const username = users[socket.id]; // Get username tied to socket ID
+    const username = users[socket.id]; 
     if (!username) return;
 
     const lobby = lobbies.find((lobby) =>
@@ -285,20 +328,20 @@ function handleSubmitAnswer(socket, answer) {
         return;
     }
 
-    // Debugging: Log the current question and answer
+    
     console.log('Submitted Answer:', answer);
     console.log('Correct Answer:', lobby.currentQuestion?.answer);
 
-    // Ensure both the submitted answer and the correct answer are trimmed and case-insensitive
+    
     const submittedAnswer = answer?.trim().toLowerCase();
     const correctAnswer = lobby.currentQuestion?.answer.trim().toLowerCase();
     const isCorrect = submittedAnswer === correctAnswer;
 
-    console.log(`Is Correct: ${isCorrect}`); // Debug: Check if the comparison works as expected
+    console.log(`Is Correct: ${isCorrect}`); 
 
     const timeTaken = 15 - lobby.timeLeft;
 
-    // Update scores and mark the user as answered
+    
     if (isCorrect) {
         const basePoints = 100;
         const bonusPoints = lobby.timeLeft * 10;
@@ -307,11 +350,11 @@ function handleSubmitAnswer(socket, answer) {
         lobby.scores[socket.id] = (lobby.scores[socket.id] || 0) + totalPoints;
         lobby.playersAnswered[socket.id] = { answer, isCorrect, timeTaken, points: totalPoints };
     } else {
-        // Mark player as answered with 0 points for incorrect answer
+        
         lobby.playersAnswered[socket.id] = { answer, isCorrect, timeTaken, points: 0 };
     }
 
-    // Update button states and emit to client
+    
     const buttonStates = lobby.currentQuestion.options.map((option) => ({
         text: option,
         isCorrect: option === lobby.currentQuestion.answer,
@@ -320,7 +363,7 @@ function handleSubmitAnswer(socket, answer) {
 
     socket.emit('update-button-states', buttonStates);
 
-    // Emit system message for the answer
+    
     io.to(lobby.id).emit('received-message', {
         name: 'System',
         message: `${username} answered in ${timeTaken} seconds.`,
@@ -329,19 +372,13 @@ function handleSubmitAnswer(socket, answer) {
     lobby.chatLog.push({ name: 'System', message: `${username} answered in ${timeTaken} seconds.`, type: 'answer' });
     broadcastLeaderboard(lobby);
 
-    // Check if all players have answered
+    
     if (Object.keys(lobby.playersAnswered).length === lobby.players.length) {
         console.log(`All players have answered in lobby ${lobby.id}. Stopping the timer.`);
-        clearInterval(lobby.gameTimer); // Stop the timer immediately
-        endQuestion(lobby); // Proceed to end the question
+        clearInterval(lobby.gameTimer); 
+        endQuestion(lobby); 
     }
 }
-
-
-
-
-
-
 
 function handleDisconnect(socket) {
     const username = users[socket.id];
@@ -353,7 +390,7 @@ function handleDisconnect(socket) {
     );
 
     if (lobby) {
-        // Remove the player from the lobby
+        
         lobby.players = lobby.players.filter(
             (player) => player.username !== username
         );
@@ -370,24 +407,22 @@ function handleDisconnect(socket) {
             message: leaveMessage,
             type: 'join',
         });
-        // If the lobby is empty, remove it
+        
         if (lobby.players.length === 0) {
             clearLobbyTimers(lobby);
             console.log(`Deleted empty lobby: ${lobby.id}`);
             lobbies.splice(lobbies.indexOf(lobby), 1);
         } else {
-            // Otherwise, update the leaderboard
+            
             broadcastLeaderboard(lobby);
         }
     }
     if (lobby) {
         updatePlayerList(lobby);
     }
-    // Remove the user from the users list
+    
     delete users[socket.id];
 }
-
-
 
 function handleSendMessage(socket, message) {
     const username = users[socket.id];
@@ -423,7 +458,7 @@ function handleReconnect(socket) {
             console.log(`${username} rejoined lobby: ${lobby.id}`);
             socket.join(lobby.id);
 
-            // Sync full lobby state with the reconnected user
+            
             socket.emit('sync-lobby', {
                 chatLog: lobby.chatLog,
                 scores: lobby.scores,
@@ -434,10 +469,10 @@ function handleReconnect(socket) {
                 totalQuestions: totalQuestions,
             });
 
-            // Broadcast the leaderboard to reinitialize CSS
+            
             broadcastLeaderboard(lobby);
 
-            // If a timer is running, reinitialize it for the client
+            
             if (lobby.timeLeft > 0) {
                 socket.emit('update-timer', lobby.timeLeft);
             }
@@ -447,24 +482,23 @@ function handleReconnect(socket) {
     }
 }
 
-
 function broadcastLeaderboard(lobby) {
     const updatedScores = lobby.players.reduce((acc, player) => {
         const { socketId, username } = player;
-        acc[username] = lobby.scores[socketId] || 0; // Use socketId for scores
+        acc[username] = lobby.scores[socketId] || 0; 
         return acc;
     }, {});
 
     const updatedAvatars = lobby.players.reduce((acc, player) => {
-        acc[player.username] = player.avatar; // Use username for avatars
+        acc[player.username] = player.avatar; 
         return acc;
     }, {});
 
     io.to(lobby.id).emit('update-leaderboard', updatedScores, updatedAvatars);
 }
 
-
-const sendQuestion = (lobby) => {
+const sendQuestion = async (lobby) => {
+    let questions = [1];
     if (!lobby) {
         console.error("sendQuestion called with undefined lobby");
         return;
@@ -473,18 +507,58 @@ const sendQuestion = (lobby) => {
     if (lobby.gameTimer) {
         clearInterval(lobby.gameTimer);
     }
+
+    if(lobby.currentQuestionNumber == 0){
+        questions = await fetchQuestionsFromAPI(
+            lobby.totalQuestions,
+            lobby.selectedCategory,
+            lobby.selectedDifficulty
+        );
+        lobby.triviaQuestions = questions || triviaQuestions;
+        
+        if (!lobby.triviaQuestions || lobby.triviaQuestions.length === 0) {
+            console.error("Failed to load trivia questions. Ending game.");
+            io.to(lobby.id).emit('game-over', {
+                winner: null,
+                finalScores: [],
+            });
+            return;
+        }
+    }
+
+    if (questions.length === 0) {
+        
+        io.to(lobby.id).emit('received-message', {
+            name: 'System',
+            message: "No questions available for the selected filters. Please try different settings.",
+            type: 'leave'
+        });
+        console.error("Ending game due to insufficient questions.");
+        return;
+    }
+
+    if (questions.length < lobby.totalQuestions) {
+        
+        io.to(lobby.id).emit('received-message', {
+            name: 'System',
+            message: `Only ${questions.length} questions are available for the selected filters. The game will proceed with these questions.`,
+            type: 'leave'
+        });
+    }
     lobby.currentQuestionNumber++;
     lobby.timeLeft = 15;
+    console.log('Current Question Number: ', lobby.currentQuestionNumber)
+    console.log('Total Questions.Length: ', lobby.totalQuestions);
     if (lobby.currentQuestionNumber > lobby.totalQuestions) {
-        // Properly map scores using socket IDs
+        
         const sortedScores = lobby.players.map((player) => ({
             username: player.username,
-            score: lobby.scores[player.socketId] || 0, // Use socketId for scores
-        })).sort((a, b) => b.score - a.score); // Sort descending by score
+            score: lobby.scores[player.socketId] || 0, 
+        })).sort((a, b) => b.score - a.score); 
 
         const finalScores = sortedScores.map((player) => [player.username, player.score]);
 
-        console.log('Here Are the finalScores variable: ', finalScores);
+        
 
         const winner = sortedScores.length ? sortedScores[0].username : null;
 
@@ -497,8 +571,10 @@ const sendQuestion = (lobby) => {
         return;
     }
 
-    const randomIndex = Math.floor(Math.random() * triviaQuestions.length);
-    lobby.currentQuestion = triviaQuestions[randomIndex];
+    const questionIndex = lobby.currentQuestionNumber - 1;
+    const questionData = lobby.triviaQuestions[questionIndex];
+
+    lobby.currentQuestion = questionData;
 
     io.to(lobby.id).emit('new-question', {
         question: lobby.currentQuestion.question,
@@ -520,7 +596,6 @@ const sendQuestion = (lobby) => {
     }, 1000);
 };
 
-
 function clearLobbyTimers(lobby) {
     if (lobby.gameTimer) {
         clearInterval(lobby.gameTimer);
@@ -531,7 +606,6 @@ function clearLobbyTimers(lobby) {
         lobby.questionTimeout = null;
     }
 }
-
 
 const endQuestion = (lobby) => {
     clearTimeout(lobby.questionTimeout);
@@ -559,7 +633,7 @@ const endQuestion = (lobby) => {
         }
     }
 
-    // Sort scores in descending order based on points
+    
     playerScores.sort((a, b) => b.points - a.points);
 
     io.to(lobby.id).emit('question-ended', {
@@ -568,15 +642,12 @@ const endQuestion = (lobby) => {
         transitionTime: 5,
     });
 
-    // Reset playersAnswered and transition to the next question after 5 seconds
+    
     lobby.playersAnswered = {};
     lobby.questionTimeout = setTimeout(() => {
         sendQuestion(lobby);
     }, 5000);
 };
-
-
-
 
 function resetGame(lobby) {
     if (!lobby) {
@@ -586,7 +657,7 @@ function resetGame(lobby) {
 
     console.log(`Resetting game for lobby: ${lobby.id}`);
 
-    // Clear any ongoing timers to prevent overlap
+    
     if (lobby.gameTimer) {
         clearInterval(lobby.gameTimer);
         lobby.gameTimer = null;
@@ -597,48 +668,43 @@ function resetGame(lobby) {
     }
 
     clearLobbyTimers(lobby);
-    // Reset the lobby state
+    
     lobby.currentQuestion = null;
     lobby.currentQuestionNumber = 0;
     lobby.playersAnswered = {};
     lobby.timeLeft = 15;
 
-    // Reset player scores
+    
     lobby.players.forEach((player) => {
         lobby.scores[player.socketId] = 0;
     });
 
-    // Notify players that the game has been reset
+    
     io.to(lobby.id).emit('reset-game', {
         message: "The game has been reset! A new round will start shortly...",
         scores: lobby.scores,
         chatLog: lobby.chatLog,
     });
 
-    // Broadcast updated leaderboard
+    
     broadcastLeaderboard(lobby);
 
-    // Restart the game after a short delay
+    
     setTimeout(() => {
         console.log(`Starting a new game for lobby: ${lobby.id}`);
         sendQuestion(lobby);
-    }, 5000); // Wait 5 seconds before restarting
+    }, 5000); 
 }
 
-
-
-
-
-
 server.listen(3000, () => {
-    console.log('Server listening on http://localhost:3000');
+    console.log('Server listening on http://3000');
 });
 app.post('/game', (req, res) => {
     const { name } = req.body;
 
     if (!name || name.trim() === '') {
         console.log('Rejected: No username provided.');
-        return res.redirect('/'); // Redirect to the main menu
+        return res.redirect('/'); 
     }
 
     req.session.username = name.trim().substring(0, 12);
@@ -646,7 +712,7 @@ app.post('/game', (req, res) => {
     console.log('Here is the targetLobbyId: ', targetLobbyId);
     req.session.targetLobbyId = null;
     if (targetLobbyId) {
-        // If a targetLobbyId exists, join the private lobby
+        
         req.session.save((err) => {
             if (err) {
                 console.error('Session save error:', err);
@@ -656,35 +722,32 @@ app.post('/game', (req, res) => {
             
         });
     } else {
-        // Otherwise, join or create a public lobby
+        
         req.session.save((err) => {
             if (err) {
                 console.error('Session save error:', err);
                 return res.redirect('/');
             }
-            res.redirect('/game'); // Public game
+            res.redirect('/game'); 
         });
     }
     req.session.targetLobbyId = null;
 });
 
-
-
-
 app.get('/game', (req, res) => {
     if (!req.session.username) {
         return res.redirect('/');
     }
-    // Render the game page without specifying a lobbyId
+    
     res.render('game', { username: req.session.username, lobbyId: null });
 });
 app.get('/game/:lobbyId', (req, res) => {
     const { lobbyId } = req.params;
 
     if (!req.session.username) {
-        req.session.targetLobbyId = lobbyId; // Save the target lobby for when they submit the form
+        req.session.targetLobbyId = lobbyId; 
         console.log("Redirecting back to main menu with lobby ID: ", lobbyId);
-        return res.redirect('/'); // Redirect them to the main menu
+        return res.redirect('/'); 
     }
 
     res.render('game', { username: req.session.username, lobbyId });
@@ -693,8 +756,6 @@ app.get('/game/:lobbyId', (req, res) => {
 app.get('*', (req, res) => {
     res.render('home', { username: req.session.username });
 });
-
-
 
 app.post('/create-custom-game', (req, res) => {
     console.log('am fired');
@@ -706,7 +767,7 @@ app.post('/create-custom-game', (req, res) => {
 
     req.session.username = name.trim().substring(0, 12);
 
-    // Generate a new custom lobby
+    
     const lobbyId = `Lobby-${uuidv4()}`;
     const lobby = {
         id: lobbyId,

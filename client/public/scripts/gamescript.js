@@ -9,16 +9,44 @@ const topBarTimer = document.querySelector('.timer');
 const chatInput = document.getElementById('chat-input');
 const charCounter = document.getElementById('char-counter');
 
+const categories = [
+    { id: "any", name: "Any Category" },
+    { id: "9", name: "General Knowledge" },
+    { id: "10", name: "Entertainment: Books" },
+    { id: "11", name: "Entertainment: Film" },
+    { id: "12", name: "Entertainment: Music" },
+    { id: "13", name: "Entertainment: Musicals & Theatres" },
+    { id: "14", name: "Entertainment: Television" },
+    { id: "15", name: "Entertainment: Video Games" },
+    { id: "16", name: "Entertainment: Board Games" },
+    { id: "17", name: "Science & Nature" },
+    { id: "18", name: "Science: Computers" },
+    { id: "19", name: "Science: Mathematics" },
+    { id: "20", name: "Mythology" },
+    { id: "21", name: "Sports" },
+    { id: "22", name: "Geography" },
+    { id: "23", name: "History" },
+    { id: "24", name: "Politics" },
+    { id: "25", name: "Art" },
+    { id: "26", name: "Celebrities" },
+    { id: "27", name: "Animals" },
+    { id: "28", name: "Vehicles" },
+    { id: "29", name: "Entertainment: Comics" },
+    { id: "30", name: "Science: Gadgets" },
+    { id: "31", name: "Entertainment: Japanese Anime & Manga" },
+    { id: "32", name: "Entertainment: Cartoon & Animations" }
+];
+
 socket.on('connect', () => {
     const avatar = localStorage.getItem('avatar') || 'default-avatar-url';
 
-    // Extract customLobbyId from the current URL if available
+    
     let customLobbyId = window.location.pathname.split('/')[2] || null;
     console.log(customLobbyId);
     if (customLobbyId) {
-        localStorage.setItem('targetLobbyId', customLobbyId); // Ensure it's stored
+        localStorage.setItem('targetLobbyId', customLobbyId); 
     } else {
-        customLobbyId = null; // Set to null for public games
+        customLobbyId = null; 
     }
 
     console.log('Joining game with customLobbyId Of: ', customLobbyId);
@@ -28,14 +56,14 @@ socket.on('connect', () => {
 
 
 if (!localStorage.getItem('username')) {
-    window.location.href = '/'; // Redirect to main menu
+    window.location.href = '/'; 
 }
 
 if (performance.navigation.type === performance.navigation.TYPE_RELOAD) {
     console.log('Page refreshed, clearing localStorage.');
     localStorage.clear();
     sessionStorage.clear();
-    window.location.href = '/'; // Redirect to the main menu
+    window.location.href = '/'; 
 }
 
 chatInput.addEventListener('input', () => {
@@ -75,7 +103,7 @@ socket.on('host-status', ({ isHost }) => {
     if (isHost) {
         document.getElementById('waiting-room').style.display = 'block';
 
-        // Enable the start game button only when 2+ players join
+        
         socket.on('update-player-list', (players) => {
             const playerList = document.getElementById('player-list');
             playerList.innerHTML = '';
@@ -86,17 +114,19 @@ socket.on('host-status', ({ isHost }) => {
             });
 
             const startButton = document.getElementById('start-game');
-            startButton.disabled = players.length < 2; // Enable only if 2+ players
+            startButton.disabled = players.length < 2; 
         });
 
-        // Add click listener for the start game button
+        
         document.getElementById('start-game').addEventListener('click', () => {
             const questionCount = document.getElementById('question-count').value;
-            socket.emit('start-game', { questionCount });
+            const selectedCategory = document.getElementById('category-select').value;
+            const selectedDifficulty = document.getElementById('difficulty-select').value;
+            socket.emit('start-game', { questionCount, selectedCategory, selectedDifficulty});
             document.getElementById('waiting-room').style.display = 'none';
         });
 
-        // Add click listener for the copy URL button
+        
         document.getElementById('copy-url').addEventListener('click', () => {
             const gameUrl = window.location.href;
             navigator.clipboard.writeText(gameUrl).then(() => {
@@ -107,18 +137,26 @@ socket.on('host-status', ({ isHost }) => {
 });
 
 
+const categorySelect = document.getElementById('category-select');
+categories.forEach(category => {
+    const option = document.createElement('option');
+    option.value = category.id;
+    option.textContent = category.name;
+    categorySelect.appendChild(option);
+});
+
 function displayGameOverScreen(winner, finalScores) {
     const gameOverContainer = document.getElementById('game-over-container');
     const winnerMessage = document.getElementById('winner-message');
     const finalScoresList = document.getElementById('final-scores');
-    // Ensure finalScores is defined and is an array
+    
     if (!Array.isArray(finalScores)) {
         console.error('Invalid finalScores:', finalScores);
         return;
     }
 
     winnerMessage.textContent = `${winner} is the Winner!`;
-    finalScoresList.innerHTML = ''; // Clear previous content
+    finalScoresList.innerHTML = ''; 
 
     finalScores.forEach(([player, score], index) => {
         const listItem = document.createElement('li');
@@ -183,30 +221,12 @@ socket.on('game-over', ({ winner, finalScores }) => {
 });
 
 socket.on('sync-lobby', ({ currentQuestion, timeLeft, currentQuestionNumber, totalQuestions, chatLog, scores, avatars }) => {
-    // Update the chat log
+    
     const messageContainer = document.getElementById('message-container');
     messageContainer.innerHTML = '';
     chatLog.forEach(({ name, message, type }) => {
         displayMessage(name === 'System' ? message : `<span style="font-weight: 900;">${name}</span>: ${message}`, type);
     });
-
-    // // Update the leaderboard
-    // const leaderboard = document.getElementById('leaderboard');
-    // leaderboard.innerHTML = '';
-    // Object.entries(scores)
-    //     .sort(([, a], [, b]) => b - a)
-    //     .forEach(([player, score], index) => {
-    //         const playerDiv = document.createElement('div');
-    //         playerDiv.className = 'leaderboard-player';
-    //         playerDiv.innerHTML = `
-    //             <div class="leaderboard-rank">#${index + 1}</div>
-    //             <div class="leaderboard-info">${player}: ${score} points</div>
-    //             <div class="leaderboard-avatar"><img src="${avatars[player]}" /></div>
-    //         `;
-    //         leaderboard.appendChild(playerDiv);
-    //     });
-
-    // Update the current question and timer
     if (currentQuestion) {
         questionElement.textContent = currentQuestion.question;
 
@@ -291,17 +311,17 @@ socket.on('update-timer', (timeLeft) => {
 socket.on('reset-game', ({ message, scores }) => {
     console.log(message);
     const leaderboard = document.getElementById('leaderboard');
-    leaderboard.innerHTML = ''; // Clear the leaderboard
+    leaderboard.innerHTML = ''; 
 
     if (scores) {
         Object.keys(scores).forEach((player) => {
-            scores[player] = 0; // Reset scores
+            scores[player] = 0; 
         });
     } else {
         console.error('Scores are not provided!');
     }
 
-    buttonsDisabled = false; // Allow interaction again
+    buttonsDisabled = false; 
 });
 
 
