@@ -47,7 +47,9 @@ app.use(
                     "'self'",
                     "https://opentdb.com", 
                     "https://cdn.socket.io",
-                    "https://trivl-production-testing-75a3ca2b8413.herokuapp.com/" 
+                    "https://trivl-production-testing-75a3ca2b8413.herokuapp.com/",
+                    "https://trivl.io",
+                    
                 ],
                 imgSrc: ["'self'", "data:", "https://avataaars.io/"], 
                 fontSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
