@@ -10,7 +10,7 @@ const axios = require('axios');
 const he = require('he'); 
 const users = {};
 const helmet = require('helmet');
-
+const PORT = process.env.PORT || 3000;
 const disconnectedUsers = {};
 app.set('views', path.join(__dirname, '../client/views'));
 app.set('view engine', 'ejs');
@@ -723,8 +723,8 @@ function resetGame(lobby) {
     }, 5000); 
 }
 
-server.listen(3000, () => {
-    console.log('Server listening on http://3000');
+server.listen(PORT, () => {
+    console.log(`Server listening on http://localhost:${PORT}`);
 });
 app.post('/game', (req, res) => {
     const { name } = req.body;
