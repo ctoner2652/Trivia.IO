@@ -1,7 +1,14 @@
 import { io } from 'https://cdn.socket.io/4.6.1/socket.io.esm.min.js';
 const messageInput = document.getElementById('chat-input');
 const form = document.getElementById('chat-form');
-const socket = io('http://localhost:3000');
+const socket = io(
+    process.env.NODE_ENV === "production"
+        ? window.location.origin
+        : "http://localhost:3000",
+    {
+        transports: ["websocket", "polling"],
+    }
+);
 const questionElement = document.getElementById('question');
 const optionsContainer = document.getElementById('answer-form');
 const topBarTimer = document.querySelector('.timer');

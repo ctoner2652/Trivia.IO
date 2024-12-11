@@ -37,23 +37,24 @@ app.use(
     helmet({
         contentSecurityPolicy: {
             directives: {
-                defaultSrc: ["'self'"], // Allow resources from your own domain
+                defaultSrc: ["'self'"], 
                 scriptSrc: [
                     "'self'",
-                    "'unsafe-inline'", // Inline scripts if needed
-                    "https://cdn.socket.io", // Allow Socket.IO scripts
+                    "'unsafe-inline'", 
+                    "https://cdn.socket.io", 
                 ],
                 connectSrc: [
                     "'self'",
-                    "https://opentdb.com", // Trivia API
-                    "https://cdn.socket.io", // Allow WebSocket connections
+                    "https://opentdb.com", 
+                    "https://cdn.socket.io",
+                    "https://trivl-production-testing-75a3ca2b8413.herokuapp.com/" 
                 ],
-                imgSrc: ["'self'", "data:", "https://avataaars.io/"], // Replace with avatar source
+                imgSrc: ["'self'", "data:", "https://avataaars.io/"], 
                 fontSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
                 styleSrc: [
                     "'self'",
-                    "'unsafe-inline'", // Inline styles
-                    "https://fonts.googleapis.com", // Google Fonts
+                    "'unsafe-inline'", 
+                    "https://fonts.googleapis.com", 
                 ],
             },
         },
