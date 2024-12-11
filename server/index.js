@@ -49,7 +49,7 @@ app.use(
                     "https://cdn.socket.io",
                     "https://trivl-production-testing-75a3ca2b8413.herokuapp.com/",
                     "https://trivl.io",
-                    
+
                 ],
                 imgSrc: ["'self'", "data:", "https://avataaars.io/"], 
                 fontSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
@@ -281,7 +281,7 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
             playersAnswered: {},
             leaderboard: {},
             currentQuestion: null,
-            totalQuestions: 1,
+            totalQuestions: 10,
             currentQuestionNumber: 0,
             timeLeft: 15,
             mainTimerEnded: false,
