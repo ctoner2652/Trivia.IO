@@ -259,6 +259,8 @@ socket.on('sync-lobby', ({ currentQuestion, timeLeft, currentQuestionNumber, tot
 
 
 document.getElementById('restart-button').addEventListener('click', () => {
+    socket.emit('leaveLobby'); 
+    socket.disconnect(); 
     window.location.href = '/'; 
 });
 

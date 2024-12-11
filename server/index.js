@@ -251,7 +251,7 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
             playersAnswered: {},
             leaderboard: {},
             currentQuestion: null,
-            totalQuestions: 10,
+            totalQuestions: 1,
             currentQuestionNumber: 0,
             timeLeft: 15,
             mainTimerEnded: false,
