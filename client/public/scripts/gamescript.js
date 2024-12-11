@@ -259,11 +259,15 @@ socket.on('sync-lobby', ({ currentQuestion, timeLeft, currentQuestionNumber, tot
 
 
 document.getElementById('restart-button').addEventListener('click', () => {
+    socket.emit('leaveLobby');
     localStorage.clear();
     sessionStorage.clear();
-    socket.disconnect(); 
-    window.location.href = '/'; 
+    socket.disconnect(() => { 
+        console.log('Socket disconnected.');
+        window.location.href = '/';
+    });
 });
+
 
 socket.on('update-leaderboard', (scores, avatars) => {
     const leaderboard = document.getElementById('leaderboard');

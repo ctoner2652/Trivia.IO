@@ -209,6 +209,34 @@ io.on('connection', (socket) => {
         lobby.selectedCategory = selectedCategory;
         sendQuestion(lobby); 
     });
+    socket.on('leaveLobby', () => {
+        const username = users[socket.id];
+        const lobby = lobbies.find((lobby) =>
+            lobby.players.some((player) => player.socketId === socket.id)
+        );
+    
+        if (lobby) {
+            // Remove the player from the lobby
+            lobby.players = lobby.players.filter(player => player.socketId !== socket.id);
+    
+            // Notify other players
+            io.to(lobby.id).emit('received-message', {
+                name: 'System',
+                message: `${username} has left the lobby!`,
+                type: 'leave',
+            });
+    
+            // If the lobby is empty, delete it
+            if (lobby.players.length === 0) {
+                clearLobbyTimers(lobby);
+                lobbies.splice(lobbies.indexOf(lobby), 1);
+                console.log(`Deleted empty lobby: ${lobby.id}`);
+            } else {
+                broadcastLeaderboard(lobby);
+            }
+        }
+    });
+    
 });
 
 function updatePlayerList(lobby) {
@@ -270,7 +298,11 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
         return;
     }
 
-    
+    if (lobby.players.some((player) => player.socketId === socket.id)) {
+        console.log(`User ${username} is already in lobby: ${lobby.id}`);
+        return;
+    }
+
     const isHost = lobby.isCustom && lobby.players.length === 0;
     lobby.players.push({ socketId: socket.id, username, avatar, isHost });
     lobby.scores[socket.id] = lobby.scores[socket.id] || 0;
