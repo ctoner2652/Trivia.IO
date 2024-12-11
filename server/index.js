@@ -9,6 +9,8 @@ const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
 const he = require('he'); 
 const users = {};
+const helmet = require('helmet');
+
 const disconnectedUsers = {};
 app.set('views', path.join(__dirname, '../client/views'));
 app.set('view engine', 'ejs');
@@ -31,7 +33,32 @@ const sessionMiddleware = session({
 });
 
 app.use(sessionMiddleware);
-
+app.use(
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"], // Allow resources from your own domain
+                scriptSrc: [
+                    "'self'",
+                    "'unsafe-inline'", // Inline scripts if needed
+                    "https://cdn.socket.io", // Allow Socket.IO scripts
+                ],
+                connectSrc: [
+                    "'self'",
+                    "https://opentdb.com", // Trivia API
+                    "https://cdn.socket.io", // Allow WebSocket connections
+                ],
+                imgSrc: ["'self'", "data:", "https://avataaars.io/"], // Replace with avatar source
+                fontSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+                styleSrc: [
+                    "'self'",
+                    "'unsafe-inline'", // Inline styles
+                    "https://fonts.googleapis.com", // Google Fonts
+                ],
+            },
+        },
+    })
+);
 io.use(sharedSession(sessionMiddleware, {
     autoSave: true, 
 }));
@@ -223,7 +250,7 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
             playersAnswered: {},
             leaderboard: {},
             currentQuestion: null,
-            totalQuestions: 2,
+            totalQuestions: 10,
             currentQuestionNumber: 0,
             timeLeft: 15,
             mainTimerEnded: false,
