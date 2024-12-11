@@ -575,8 +575,8 @@ const sendQuestion = async (lobby) => {
     }
     lobby.currentQuestionNumber++;
     lobby.timeLeft = 15;
-    console.log('Current Question Number: ', lobby.currentQuestionNumber)
-    console.log('Total Questions.Length: ', lobby.totalQuestions);
+    console.log('Current Question Number: ', lobby.currentQuestionNumber, ' of lobby ID: ', lobby.id);
+    console.log('Total Questions.Length: ', lobby.totalQuestions, ' of lobby ID: ', lobby.id);
     if (lobby.currentQuestionNumber > lobby.totalQuestions) {
         
         const sortedScores = lobby.players.map((player) => ({
