@@ -751,8 +751,13 @@ function resetGame(lobby) {
 
     
     setTimeout(() => {
-        console.log(`Starting a new game for lobby: ${lobby.id}`);
-        sendQuestion(lobby);
+        if(lobby.players.length > 0){
+            console.log(`Starting a new game for lobby: ${lobby.id}`);
+            sendQuestion(lobby);
+        }else{
+            return;
+        }
+        
     }, 5000); 
 }
 
