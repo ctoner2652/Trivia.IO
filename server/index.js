@@ -77,13 +77,7 @@ io.use(sharedSession(sessionMiddleware, {
     autoSave: true, 
 }));
 
-sessionMiddleware.store.on('connected', () => {
-    console.log('Connected to MongoDB for session storage');
-});
-  
-sessionMiddleware.store.on('error', (err) => {
-    console.error('MongoDB connection error:', err);
-});
+console.logs(mongoUri);
 
 io.engine.use((req, res, next) => {
     sessionMiddleware(req, res, next);
