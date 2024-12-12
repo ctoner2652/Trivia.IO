@@ -77,7 +77,7 @@ io.use(sharedSession(sessionMiddleware, {
     autoSave: true, 
 }));
 
-console.logs(mongoUri);
+console.log(mongoUri);
 
 io.engine.use((req, res, next) => {
     sessionMiddleware(req, res, next);
