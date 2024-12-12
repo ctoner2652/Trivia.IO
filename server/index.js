@@ -47,41 +47,36 @@ const sessionMiddleware = session({
 });
 
 app.use(sessionMiddleware);
-// app.use(
-//     helmet({
-//         contentSecurityPolicy: {
-//             directives: {
-//                 defaultSrc: ["'self'"], 
-//                 scriptSrc: [
-//                     "'self'",
-//                     "'unsafe-inline'", 
-//                     "https://cdn.socket.io", 
-//                 ],
-//                 connectSrc: [
-//                     "'self'",
-//                     "https://opentdb.com", 
-//                     "https://cdn.socket.io",
-//                     "https://trivl-production-testing-75a3ca2b8413.herokuapp.com/",
-//                     "https://trivl.io",
-
-//                 ],
-//                 imgSrc: ["'self'", "data:", "https://avataaars.io/"], 
-//                 fontSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
-//                 styleSrc: [
-//                     "'self'",
-//                     "'unsafe-inline'", 
-//                     "https://fonts.googleapis.com", 
-//                 ],
-//             },
-//         },
-//     })
-// );
-
 app.use(
     helmet({
-        contentSecurityPolicy: false, // Disable CSP temporarily
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"], 
+                scriptSrc: [
+                    "'self'",
+                    "'unsafe-inline'", 
+                    "https://cdn.socket.io", 
+                ],
+                connectSrc: [
+                    "'self'",
+                    "https://opentdb.com", 
+                    "https://cdn.socket.io",
+                    "https://trivl-production-testing-75a3ca2b8413.herokuapp.com/",
+                    "https://trivl.io",
+
+                ],
+                imgSrc: ["'self'", "data:", "https://avataaars.io/"], 
+                fontSrc: ["'self'", "https://fonts.googleapis.com", "https://fonts.gstatic.com"],
+                styleSrc: [
+                    "'self'",
+                    "'unsafe-inline'", 
+                    "https://fonts.googleapis.com", 
+                ],
+            },
+        },
     })
 );
+
 io.use(sharedSession(sessionMiddleware, {
     autoSave: true, 
 }));
@@ -795,10 +790,9 @@ app.post('/game', (req, res) => {
         console.log('Rejected: No username provided.');
         return res.redirect('/'); 
     }
-
+    console.log('Session data at /game POST:', req.session); 
     req.session.username = name.trim().substring(0, 12);
     const targetLobbyId = req.query.lobbyId || req.session.targetLobbyId;
-    console.log('Here is the targetLobbyId: ', targetLobbyId);
     req.session.targetLobbyId = null;
     if (targetLobbyId) {
         
