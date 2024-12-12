@@ -30,19 +30,19 @@ const mongoose = require('mongoose');
 mongoose.connect(process.env.MONGO_URI).then(() => console.log('Connected')).catch(err => console.error(err));
 const mongoUri = process.env.MONGO_URI;
 console.log(mongoUri);
+app.set('trust proxy', 1); 
 const sessionMiddleware = session({
     secret: 'your-secret-key', 
     resave: false,
-    saveUninitialized: false,
-    store: MongoStore.create({
-        mongoUrl: mongoUri,
-        collectionName: 'sessions', 
+    saveUninitialized: true,
+    store: new MongoStore({
+        mongoUrl: process.env.MONGO_URI,
         ttl: 14 * 24 * 60 * 60, 
     }),
     cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
-        maxAge: 14 * 24 * 60 * 60 * 1000, 
+        secure: process.env.NODE_ENV === 'production', // Only secure in production
+        httpOnly: true, // Prevent client-side JS access
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // None for cross-origin
     },
 });
 
@@ -85,6 +85,18 @@ io.use(sharedSession(sessionMiddleware, {
 
 io.engine.use((req, res, next) => {
     sessionMiddleware(req, res, next);
+});
+
+app.use((req, res, next) => {
+    if (process.env.NODE_ENV === 'production' && !req.secure) {
+        return res.redirect('https://' + req.headers.host + req.url);
+    }
+    next();
+});
+
+app.use((req, res, next) => {
+    console.log('Cookies:', req.cookies);
+    next();
 });
 
 const triviaQuestions = [
