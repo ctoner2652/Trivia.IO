@@ -6,7 +6,7 @@ const socket = io(
         ? "http://localhost:3000"
         : window.location.origin,
     {
-        transports: ["websocket", "polling"], // Ensure WebSocket with fallback
+        transports: ["websocket", "polling"],
     }
 );
 
@@ -259,14 +259,9 @@ socket.on('sync-lobby', ({ currentQuestion, timeLeft, currentQuestionNumber, tot
 
 
 document.getElementById('restart-button').addEventListener('click', () => {
-    // Explicitly disconnect the socket
-    socket.close(); 
-
-    // Clear local/session storage for a clean state
+    socket.close();
     localStorage.clear();
     sessionStorage.clear();
-
-    // Navigate back to the main menu
     window.location.href = '/';
 });
 

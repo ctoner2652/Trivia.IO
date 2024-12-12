@@ -10,6 +10,7 @@ const axios = require('axios');
 const he = require('he'); 
 const users = {};
 const helmet = require('helmet');
+const MongoStore = require('connect-mongo');
 const PORT = process.env.PORT || 3000;
 const disconnectedUsers = {};
 app.set('views', path.join(__dirname, '../client/views'));
@@ -25,11 +26,21 @@ const io = new Server(server, {
     },
 });
 
+const mongoUri = process.env.MONGO_URI;
 const sessionMiddleware = session({
     secret: 'your-secret-key', 
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false, httpOnly: true }, 
+    store: MongoStore.create({
+        mongoUrl: mongoUri,
+        collectionName: 'sessions', 
+        ttl: 14 * 24 * 60 * 60, 
+    }),
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        maxAge: 14 * 24 * 60 * 60 * 1000, 
+    },
 });
 
 app.use(sessionMiddleware);
