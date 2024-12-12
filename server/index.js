@@ -16,6 +16,7 @@ const disconnectedUsers = {};
 app.set('views', path.join(__dirname, '../client/views'));
 app.set('view engine', 'ejs');
 app.use(express.static(path.join(__dirname, '../client/public')));
+require('dotenv').config();
 app.use(express.urlencoded({ extended: true }));
 const server = http.createServer(app);
 const sanitizeHtml = require('sanitize-html');
@@ -25,8 +26,10 @@ const io = new Server(server, {
         methods: ['GET', 'POST'],
     },
 });
-
+const mongoose = require('mongoose');
+mongoose.connect(process.env.MONGO_URI).then(() => console.log('Connected')).catch(err => console.error(err));
 const mongoUri = process.env.MONGO_URI;
+console.log(mongoUri);
 const sessionMiddleware = session({
     secret: 'your-secret-key', 
     resave: false,
@@ -77,7 +80,7 @@ io.use(sharedSession(sessionMiddleware, {
     autoSave: true, 
 }));
 
-console.log(mongoUri);
+
 
 io.engine.use((req, res, next) => {
     sessionMiddleware(req, res, next);
