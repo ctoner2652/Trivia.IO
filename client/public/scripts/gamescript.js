@@ -1,5 +1,5 @@
 import { io } from 'https://cdn.socket.io/4.6.1/socket.io.esm.min.js';
-    const messageInput = document.getElementById('chat-input');
+const messageInput = document.getElementById('chat-input');
 const form = document.getElementById('chat-form');
 const socket = io(
     window.location.hostname === "localhost"
@@ -66,6 +66,12 @@ socket.on('connect', () => {
 if (!localStorage.getItem('username')) {
     window.location.href = '/'; 
 }
+
+messageInput.addEventListener('input', () => {
+    const value = messageInput.value;
+    messageInput.value = ''; // Temporarily clear input
+    messageInput.value = value; // Reset input value to force caret at the end
+});
 
 if (performance.navigation.type === performance.navigation.TYPE_RELOAD) {
     console.log('Page refreshed, clearing localStorage.');
