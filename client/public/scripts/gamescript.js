@@ -1,5 +1,5 @@
 import { io } from 'https://cdn.socket.io/4.6.1/socket.io.esm.min.js';
-const messageInput = document.getElementById('chat-input');
+    const messageInput = document.getElementById('chat-input');
 const form = document.getElementById('chat-form');
 const socket = io(
     window.location.hostname === "localhost"
