@@ -55,7 +55,8 @@ app.use(
                 scriptSrc: [
                     "'self'",
                     "'unsafe-inline'", 
-                    "https://cdn.socket.io", 
+                    "https://cdn.socket.io",
+                    "https://cdn.jsdelivr.net" 
                 ],
                 connectSrc: [
                     "'self'",
@@ -63,6 +64,7 @@ app.use(
                     "https://cdn.socket.io",
                     "https://trivl-production-testing-75a3ca2b8413.herokuapp.com/",
                     "https://trivl.io",
+                    "https://cdn.jsdelivr.net"
 
                 ],
                 imgSrc: ["'self'", "data:", "https://avataaars.io/"], 
@@ -70,7 +72,8 @@ app.use(
                 styleSrc: [
                     "'self'",
                     "'unsafe-inline'", 
-                    "https://fonts.googleapis.com", 
+                    "https://fonts.googleapis.com",
+                    "https://cdn.jsdelivr.net"
                 ],
             },
         },
