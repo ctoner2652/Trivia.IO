@@ -520,6 +520,7 @@ function handleDisconnect(socket) {
 
 function handleSendMessage(socket, message) {
     const username = users[socket.id];
+    console.log('Sent message:', message);
     const lobby = lobbies.find((lobby) =>
         lobby.players.some((player) => player.socketId === socket.id)
     );
