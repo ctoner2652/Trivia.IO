@@ -31,9 +31,6 @@
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
     }
-    #main-container {
-        height: calc(100dvh - 80px); 
-    }
     .leaderboard-player:nth-child(odd) {
         background-color: #e0e0e0;
     }
@@ -159,13 +156,12 @@
     position: relative;
 }
 .quiz-container, .chat-container{
-    height: 95%;
+    height: 78svh;
 }
 .container-fluids {
-    height: 100dvh;
     display: flex;
     flex-direction: column;
-    height: var(--app-height);
+    height: 100svh;
     contain: layout; 
     will-change: transform; 
 }
@@ -188,9 +184,6 @@
     #question{
         padding-top: 0;
         margin-top: 0;
-    }
-    #main-container {
-        flex-direction: column; 
     }
 
     .quiz-container {
@@ -217,17 +210,14 @@
     padding-right: 60px; 
     }
     .chat-container{
-        height: 50%;
+        height: 50svh;
     }
     .container-fluids {
-        height: 100%;
+        height: 100svh;
         display: flex;
         flex-direction: column;
         padding-left: 0;
         padding-right: 0;
-    }
-    .main-container{
-        position: fixed;
     }
     .game-name svg{
     width: 150px;
@@ -285,7 +275,7 @@
             </div>
         </div> 
         
-        <div class="container-fluids m-0 p-0 ">
+        <div class="container-fluids m-0 p-0 vh-100">
             <div class="row h-100">
                 <div class="col-md-2 col-5 order-2 order-md-1 m-0">
                     <div id="leaderboard-container" class="rounded d-flex flex-column">
