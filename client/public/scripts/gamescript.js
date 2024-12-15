@@ -46,7 +46,7 @@ const categories = [
 ];
 
 function updateAppHeight() {
-    const appHeight = window.innerHeight;
+    const appHeight = document.documentElement.clientHeight;
     document.documentElement.style.setProperty('--app-height', `${appHeight}px`);
 }
 updateAppHeight();
