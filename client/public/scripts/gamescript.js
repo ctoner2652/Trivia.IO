@@ -67,12 +67,6 @@ if (!localStorage.getItem('username')) {
     window.location.href = '/'; 
 }
 
-messageInput.addEventListener('input', () => {
-    const value = messageInput.value;
-    messageInput.value = ''; // Temporarily clear input
-    messageInput.value = value; // Reset input value to force caret at the end
-});
-
 if (performance.navigation.type === performance.navigation.TYPE_RELOAD) {
     console.log('Page refreshed, clearing localStorage.');
     localStorage.clear();
@@ -206,7 +200,7 @@ socket.on('new-question', ({ question, options, questionNumber, totalQuestions }
     optionsContainer.innerHTML = '';
     options.forEach((option) => {
         const button = document.createElement('button');
-        button.className = 'answer-choice';
+        button.className = 'answer-choice rounded';
         button.textContent = option;
 
         button.onclick = () => {
@@ -219,7 +213,7 @@ socket.on('new-question', ({ question, options, questionNumber, totalQuestions }
         optionsContainer.appendChild(button);
     });
 
-    const progressElement = document.querySelector('.progress');
+    const progressElement = document.querySelector('.question-count');
     progressElement.textContent = `Question ${questionNumber} of ${totalQuestions}`;
 
     topBarTimer.innerHTML = `<span style="font-weight: 900;">⏱</span> 15 Seconds remaining`;
@@ -256,7 +250,7 @@ socket.on('sync-lobby', ({ currentQuestion, timeLeft, currentQuestionNumber, tot
             optionsContainer.appendChild(button);
         });
 
-        const progressElement = document.querySelector('.progress');
+        const progressElement = document.querySelector('.question-count');
         progressElement.textContent = `Question ${currentQuestionNumber} of ${totalQuestions}`;
 
         topBarTimer.innerHTML = `<span style="font-weight: 900;">⏱</span> ${timeLeft} Seconds remaining`;
@@ -353,6 +347,7 @@ socket.on('question-ended', ({ correctAnswer, playerScores, transitionTime }) =>
     playerScoresList.innerHTML = '';
     playerScores.forEach(({ username, isCorrect, points }) => {
         const listItem = document.createElement('li');
+        listItem.classList.add('player-score');
         const resultText = isCorrect ? `+${points}` : `0`;
         const color = isCorrect ? 'green' : 'red';
         
