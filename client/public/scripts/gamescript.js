@@ -45,25 +45,19 @@ const categories = [
     { id: "32", name: "Entertainment: Cartoon & Animations" }
 ];
 
-function setFixedHeights() {
-    const vh = window.innerHeight; // Get actual viewport height
-    const chatContainer = document.querySelector('.chat-container');
-    const mainContainer = document.querySelector('.container-fluids');
-
-    // Lock the heights
-    chatContainer.style.height = `${vh * 0.5}px`; // 50% of viewport height for chat
-    mainContainer.style.height = `${vh}px`; // Full viewport height for main container
+function updateAppHeight() {
+    const appHeight = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${appHeight}px`);
 }
 
-// Initial load
-setFixedHeights();
+updateAppHeight();
+window.addEventListener('resize', updateAppHeight);
 
-// Update on resize
-window.addEventListener('resize', setFixedHeights);
-
-// Double-check after orientation change
-window.addEventListener('orientationchange', setFixedHeights);
-
+if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+    window.addEventListener('resize', () => {
+        document.documentElement.style.setProperty('--ios-height', `${window.innerHeight}px`);
+    });
+}
 
 
 socket.on('connect', () => {
