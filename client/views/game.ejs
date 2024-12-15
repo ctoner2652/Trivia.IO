@@ -216,7 +216,7 @@
     padding-right: 60px; 
     }
     .chat-container{
-        height: 50vh;
+        height: calc(50vh - env(safe-area-inset-bottom));
     }
     .container-fluids {
         height: calc(var(--app-height, 100vh));
@@ -224,7 +224,7 @@
         flex-direction: column;
         padding-left: 0;
         padding-right: 0;
-        padding-bottom: max(env(safe-area-inset-bottom), 16px);
+        margin-bottom: max(env(safe-area-inset-bottom), 16px);
     }
     .game-name svg{
     width: 150px;
