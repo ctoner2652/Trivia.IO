@@ -164,7 +164,7 @@
 .container-fluids {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: var(--app-height);
     contain: layout; 
     will-change: transform; 
 }
@@ -216,7 +216,7 @@
     padding-right: 60px; 
     }
     .chat-container{
-        height: 45vh;
+        height:calc(var(--app-height)/2);
     }
     .container-fluids {
         height: var(--app-height);
