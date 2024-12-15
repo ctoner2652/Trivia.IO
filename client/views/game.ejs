@@ -210,20 +210,42 @@
     #chat-input{
     padding-right: 60px; 
     }
-    .chat-container {
+    /* Chat container height fix */
+.chat-container {
+    position: relative; /* Maintains internal positioning */
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
-    height: calc(var(--vh, 1vh) * 50); 
-    max-height: calc(var(--ios-height, 100vh) * 0.5); 
-    overflow: hidden;
-    }
-    #message-container {
-    flex: 1; 
-    overflow-y: auto;
-    max-height: 100%; 
-    min-height: 0; 
+    justify-content: flex-end; /* Pushes chat input to bottom */
+    height: 50%; /* Use percentage instead of vh */
+    max-height: 50%; /* Enforces height consistency */
+    overflow: hidden; /* Prevents content spill */
 }
+
+/* Message container scroll fix */
+#message-container {
+    flex: 1; /* Allows it to grow but not overflow */
+    overflow-y: auto; /* Enables scrolling for messages */
+    max-height: calc(100% - 50px); /* Ensures input space isn’t consumed */
+    min-height: 0; /* Prevents height glitches */
+}
+
+/* Chat input fix */
+#chat-form {
+    position: fixed; /* Anchors input to bottom of the screen */
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: white; /* Matches your design */
+    padding: 10px; /* Adds breathing room */
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow for clarity */
+    z-index: 1000; /* Ensures input is above all other content */
+}
+
+#chat-input {
+    width: 100%; /* Fills available space */
+    margin-right: 10px; /* Adds spacing next to button */
+}
+
     .container-fluids {
         height: calc(var(--vh, 1vh) * 100);
         max-height: calc(var(--ios-height, 100vh) * 1);
