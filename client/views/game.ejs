@@ -219,7 +219,7 @@
         height: calc(50vh - env(safe-area-inset-bottom));
     }
     .container-fluids {
-        height: calc(var(--app-height, 100vh)); 
+        height: calc(var(--app-height) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
         display: flex;
         flex-direction: column;
         padding-left: 0;
