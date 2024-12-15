@@ -47,10 +47,17 @@ const categories = [
 
 function updateAppHeight() {
     const appHeight = window.innerHeight * 0.01;
-    document.documentElement.style.setProperty('--vh',`${appHeight}px`);
+    document.documentElement.style.setProperty('--vh', `${appHeight}px`);
 }
+
 updateAppHeight();
 window.addEventListener('resize', updateAppHeight);
+
+if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+    window.addEventListener('resize', () => {
+        document.documentElement.style.setProperty('--ios-height', `${window.innerHeight}px`);
+    });
+}
 
 
 socket.on('connect', () => {
