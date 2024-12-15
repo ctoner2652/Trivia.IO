@@ -32,7 +32,7 @@
         -webkit-text-fill-color: transparent;
     }
     #main-container {
-        height: calc(100vh - 80px); 
+        height: calc(100dvh - 80px); 
     }
     .leaderboard-player:nth-child(odd) {
         background-color: #e0e0e0;
@@ -162,6 +162,7 @@
     height: 95%;
 }
 .container-fluids {
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     height: var(--app-height);
@@ -216,10 +217,10 @@
     padding-right: 60px; 
     }
     .chat-container{
-        height: calc(var(--app-height) / 2 - env(safe-area-inset-bottom));
+        height: calc(50dvh - env(safe-area-inset-bottom));
     }
     .container-fluids {
-        height: calc(var(--app-height) - env(safe-area-inset-bottom));
+        height: calc(100dvh - env(safe-area-inset-bottom));
         display: flex;
         flex-direction: column;
         padding-left: 0;
@@ -281,7 +282,7 @@
             </div>
         </div> 
         
-        <div class="container-fluids m-0 p-0 vh-100">
+        <div class="container-fluids m-0 p-0 ">
             <div class="row h-100">
                 <div class="col-md-2 col-5 order-2 order-md-1 m-0">
                     <div id="leaderboard-container" class="rounded d-flex flex-column">
