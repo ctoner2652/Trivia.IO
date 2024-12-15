@@ -22,7 +22,6 @@
         background-image: url("/images/wallpapertile.png");
         background-repeat: repeat;
         font-family: "Zain", sans-serif;
-        overflow: hidden;
     }
     .game-name {
         font-size: 2rem;
@@ -217,15 +216,16 @@
     padding-right: 60px; 
     }
     .chat-container{
-        height: calc(48vh - env(safe-area-inset-bottom));
+        height: calc(50vh - env(safe-area-inset-bottom));
     }
     .container-fluids {
-        height: calc(var(--app-height, 100vh));
         display: flex;
         flex-direction: column;
         padding-left: 0;
         padding-right: 0;
-        margin-bottom: max(env(safe-area-inset-bottom), 16px);
+    }
+    .main-container{
+        height: calc(var(--app-height, 100vh));  
     }
     .game-name svg{
     width: 150px;
@@ -274,7 +274,7 @@
 </style>
 
 <body>
-    <div class="container-fluids">
+    <div class="container-fluids main-container">
          <div id="top-bar" class="d-flex justify-content-between align-items-center p-2 bg-white rounded">
             <div class="timer"><span style="font-weight: 900;">⏱</span>Waiting for game to start...</div>
             <div class="question-count">Waiting for Game To Start...</div>
