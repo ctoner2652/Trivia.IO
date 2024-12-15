@@ -209,9 +209,20 @@
     #chat-input{
     padding-right: 60px; 
     }
-    .chat-container{
-        height: calc(var(--vh, 1vh) * 50);
+    .chat-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    height: 50%; /* Fallback for iOS */
+    max-height: calc(var(--vh, 1vh) * 50); /* Dynamically calculated height */
+    overflow: hidden;
     }
+    #message-container {
+    flex: 1; /* Take all available space */
+    overflow-y: auto;
+    max-height: 100%; /* Ensure it respects the parent's height */
+    min-height: 0; /* Prevent content overflow issues */
+}
     .container-fluids {
         height: calc(var(--vh, 1vh) * 100);
         display: flex;
