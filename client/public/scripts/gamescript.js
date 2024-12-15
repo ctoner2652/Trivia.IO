@@ -45,6 +45,14 @@ const categories = [
     { id: "32", name: "Entertainment: Cartoon & Animations" }
 ];
 
+function updateAppHeight() {
+    const appHeight = window.innerHeight;
+    document.documentElement.style.setProperty('--app-height', `${appHeight}px`);
+}
+updateAppHeight();
+window.addEventListener('resize', updateAppHeight);
+
+
 socket.on('connect', () => {
     const avatar = localStorage.getItem('avatar') || 'default-avatar-url';
 
