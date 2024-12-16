@@ -17,6 +17,9 @@
     * {
     box-sizing: border-box; 
     }
+    body, html{
+        height: var(--vh);
+    }
     body {
         background-color: #123595;
         background-image: url("/images/wallpapertile.png");
@@ -156,14 +159,20 @@
     position: relative;
 }
 .quiz-container, .chat-container{
-    height: 78svh;
+    height:95%;
 }
 .container-fluids {
     display: flex;
     flex-direction: column;
-    height: 100svh; 
+    height: 100%; 
+    width: 100%;
+    padding-right: var(--bs-gutter-x, .75rem);
+    padding-left: var(--bs-gutter-x, .75rem); 
+    margin-right: auto;
+    margin-left: auto;
     contain: layout; 
-    will-change: transform; 
+    will-change: transform;
+    overflow-y: auto;
 }
 #chat-input{
     padding-right: 60px; 
@@ -171,15 +180,6 @@
 #question{
     margin-top: 5rem;
 }
-.container-fluids{
-    width: 100%;
-    padding-right: var(--bs-gutter-x, .75rem);
-    padding-left: var(--bs-gutter-x, .75rem); 
-    margin-right: auto;
-    margin-left: auto;
-
-}
-
 @media (max-width: 768px) {
     #question{
         padding-top: 0;
@@ -213,7 +213,7 @@
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    height: 50svh;
+    height: 50%;
     overflow: hidden;
     }
     #message-container {
@@ -223,7 +223,7 @@
     min-height: 0; 
 }
     .container-fluids {
-        height: 100svh;
+        height: 100%;
         display: flex;
         flex-direction: column;
         padding-left: 0;
