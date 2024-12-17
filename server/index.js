@@ -554,6 +554,7 @@ function handleDisconnect(socket) {
 
     if (socket.request.session) {
         socket.request.session.username = null; // Clear username
+        socket.request.session.leftLobby = true;
         socket.request.session.save((err) => {
             if (err) {
                 console.error('Error clearing username from session:', err);
@@ -852,18 +853,17 @@ app.post('/game', (req, res) => {
 
     if (!name || name.trim() === '') {
         console.log('Rejected: No username provided.');
-        return res.redirect('/'); 
+        return res.redirect('/');
     }
     req.session.username = name.trim().substring(0, 12);
+
     if (lobbyId) {
-        
         req.session.save((err) => {
             if (err) {
                 console.error('Session save error:', err);
                 return res.redirect('/');
             }
             res.redirect(`/game/${lobbyId}`);
-            
         });
     } else {
         req.session.save((err) => {
@@ -871,62 +871,51 @@ app.post('/game', (req, res) => {
                 console.error('Session save error:', err);
                 return res.redirect('/');
             }
-            res.redirect('/game'); 
+            res.redirect('/game');
         });
     }
 });
 
+
 app.get('/game', (req, res) => {
+    // If no username exists, redirect to home page
     if (!req.session.username) {
-        return res.redirect('/');
+        console.log('No username found. Redirecting to home page.');
+        return res.render('home', { username: null, lobbyId: null });
     }
+
+    console.log(`Rendering public game for username: ${req.session.username}`);
     res.render('game', { username: req.session.username, lobbyId: null });
 });
+
 app.get('/game/:lobbyId', (req, res) => {
     const { lobbyId } = req.params;
 
-    // Initialize firstTimeHere in session if it doesn't exist
-    if (req.session.firstTimeHere === undefined) {
-        req.session.firstTimeHere = true;
-    }
+    console.log('Session state on /game/:lobbyId:', {
+        username: req.session.username,
+        lobbyId,
+    });
 
-    console.log('What is req.session.firstTimeHere?', req.session.firstTimeHere);
-
-    const lobby = lobbies.find((lobby) => lobby.id === lobbyId);
-
-    // Handle invalid lobbies
-    if (!lobby) {
-        if (lobbyId === "home") {
-            return res.render('home');
-        }
-        console.log(`Lobby ${lobbyId} not found.`);
-        return res.redirect('/'); // Redirect to root if lobby doesn't exist
-    }
-
-    // If username exists AND user is already in the game, don't force a redirect
-    if (req.session.username) {
-        console.log(`User "${req.session.username}" is trying to join lobby: ${lobbyId}`);
-        return res.render('game', { username: req.session.username, lobbyId });
-    }
-
-    // If no username, handle first-time logic
+    // If no username, redirect to home page with lobby ID intact
     if (!req.session.username) {
-        console.log(`Here is firstTimeHere: ${req.session.firstTimeHere}`);
-
-        if (!req.session.firstTimeHere) {
-            req.session.firstTimeHere = true; // Reset for next time
-            console.log(`Redirecting to root because firstTimeHere is false.`);
-            return res.redirect('/'); // Clean redirect to home
-        }
-
-        req.session.firstTimeHere = false; // Mark that we've been here once
-        console.log(`Rendering home page with lobby ID: ${lobbyId}`);
-        return res.render('home', { username: null, lobbyId }); // Pass lobbyId to the home page
+        console.log(`No username found. Rendering home page with lobby ID: ${lobbyId}`);
+        return res.render('home', { username: null, lobbyId });
     }
 
-    console.log(`Rendering game page for lobby: ${lobbyId}`);
+    // Check if the lobby exists
+    const lobby = lobbies.find((l) => l.id === lobbyId);
+
+    if (!lobby) {
+        console.log(`Lobby ${lobbyId} not found. Redirecting to public game.`);
+        return res.redirect('/game'); // Redirect to public game
+    }
+
+    // Render the game page if the lobby is valid
+    console.log(`Rendering game page for lobby: ${lobbyId} with username: ${req.session.username}`);
     res.render('game', { username: req.session.username, lobbyId });
 });
+
+
 
 
 

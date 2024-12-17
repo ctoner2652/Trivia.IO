@@ -433,9 +433,3 @@ function displayMessage(text, type, isEven) {
     
     messageContainer.scrollTop = messageContainer.scrollHeight;
 }
-
-
-
-
-
-
