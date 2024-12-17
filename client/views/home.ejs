@@ -269,16 +269,10 @@ transform: translateY(-10px);
                 form.parentNode.insertBefore(errorMessage, form);
             }
             document.addEventListener("DOMContentLoaded", () => {
-    const avatarImg = document.getElementById("avatar");
-    const storedAvatar = localStorage.getItem("avatar");
+            const avatarImg = document.getElementById("avatar");
+            const storedAvatar = localStorage.getItem("avatar");
 
     // If an avatar exists in localStorage, use it
-    if (storedAvatar) {
-        avatarImg.src = storedAvatar;
-    } else {
-        // Otherwise, update with default avatar config
-        updateAvatar();
-    }
 
     // Default avatar config
     const defaultAvatarConfig = {
@@ -317,6 +311,12 @@ transform: translateY(-10px);
     let currentEyeIndex = eyeTypes.indexOf(avatarConfig.eyeType);
     let currentClothesIndex = clothesTypes.indexOf(avatarConfig.clothesType);
 
+    if (storedAvatar) {
+        avatarImg.src = storedAvatar;
+    } else {
+        // Otherwise, update with default avatar config
+        updateAvatar();
+    }
     // Function to update avatar URL and save config
     function updateAvatar() {
         const avatarURL = `https://avataaars.io/?avatarStyle=Circle&topType=${avatarConfig.topType}&eyeType=${avatarConfig.eyeType}&clotheType=${avatarConfig.clothesType}`;
