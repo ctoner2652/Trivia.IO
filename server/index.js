@@ -551,6 +551,18 @@ function handleDisconnect(socket) {
     if (lobby) {
         updatePlayerList(lobby);
     }
+
+    if (socket.request.session) {
+        socket.request.session.username = null; // Clear username
+        socket.request.session.save((err) => {
+            if (err) {
+                console.error('Error clearing username from session:', err);
+            } else {
+                console.log(`${username}'s username cleared from session.`);
+            }
+        });
+    }
+
     
     delete users[socket.id];
 }

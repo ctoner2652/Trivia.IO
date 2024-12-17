@@ -75,11 +75,6 @@ socket.on('connect', () => {
     localStorage.removeItem('targetLobbyId');
 });
 
-
-if (!localStorage.getItem('username')) {
-    window.location.href = '/'; 
-}
-
 if (performance.navigation.type === performance.navigation.TYPE_RELOAD) {
     localStorage.clear();
     sessionStorage.clear();
