@@ -76,18 +76,16 @@ socket.on('connect', () => {
 });
 
 
-// if (!localStorage.getItem('username')) {
-//     window.location.href = '/'; 
-// }
+if (!localStorage.getItem('username')) {
+    window.location.href = '/'; 
+}
 
-// if (performance.navigation.type === performance.navigation.TYPE_RELOAD) {
-//     socket.close();
-//     console.log('Page refreshed, clearing localStorage and notifying the server.');
-//     localStorage.clear();
-//     sessionStorage.clear();
-//     wwindow.location.replace('/');
+if (performance.navigation.type === performance.navigation.TYPE_RELOAD) {
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = '/'; 
     
-// }
+}
 
 
 chatInput.addEventListener('input', () => {

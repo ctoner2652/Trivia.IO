@@ -334,14 +334,17 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
         : lobbies.find(
               (lobby) =>
                   lobby.players.length < maxPlayersPerLobby &&
-                  !lobby.isCustom 
+                  !lobby.isCustom
+                  
           );
-
+    
     if (lobby && lobby.players.length >= maxPlayersPerLobby) {
         console.log(`Lobby ${lobby.id} is full. Cannot join.`);
         return;
     }
-
+    if(lobby){
+        console.log(`Lobby Length: `, lobby.players.length)
+    }
     
     if (!lobby) {
         lobby = {
@@ -364,7 +367,6 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
         };
 
         lobbies.push(lobby);
-        console.log(`Created new ${targetLobbyId ? 'custom' : 'public'} lobby: ${lobby.id}`);
     }
 
     if (lobby.players.length >= maxPlayersPerLobby) {
@@ -382,7 +384,6 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
     lobby.scores[socket.id] = lobby.scores[socket.id] || 0;
     lobby.avatars[socket.id] = avatar;
     updatePlayerList(lobby);
-    console.log(`${username} joined lobby: ${lobby.id} ${isHost ? " as Host": ''}`);
     socket.join(lobby.id);
 
     if(isHost){
@@ -464,9 +465,6 @@ function handleSubmitAnswer(socket, answer) {
     const submittedAnswer = answer?.trim().toLowerCase();
     const correctAnswer = lobby.currentQuestion?.answer.trim().toLowerCase();
     const isCorrect = submittedAnswer === correctAnswer;
-
-    console.log(`Is Correct: ${isCorrect}`); 
-
     const timeTaken = 15 - lobby.timeLeft;
 
     
@@ -517,13 +515,13 @@ function handleDisconnect(socket) {
     );
 
     if (lobby) {
-        socket.request.session.destroy((err) => {
-            if (err) {
-                console.error('Failed to destroy session:', err);
-            } else {
-                console.log(`${username}'s session destroyed on disconnect.`);
-            }
-        });
+        // socket.request.session.destroy((err) => {
+        //     if (err) {
+        //         console.error('Failed to destroy session:', err);
+        //     } else {
+        //         console.log(`${username}'s session destroyed on disconnect.`);
+        //     }
+        // });
         lobby.players = lobby.players.filter(
             (player) => player.username !== username
         );
@@ -836,6 +834,7 @@ function resetGame(lobby) {
 server.listen(PORT, () => {
     console.log(`Server listening on http://localhost:${PORT}`);
 });
+
 app.post('/game', (req, res) => {
     const { name, lobbyId } = req.body;
 
@@ -871,32 +870,53 @@ app.get('/game', (req, res) => {
     }
     res.render('game', { username: req.session.username, lobbyId: null });
 });
-let firstTimeHere = 0;
 app.get('/game/:lobbyId', (req, res) => {
     const { lobbyId } = req.params;
-    
+
+    // Initialize firstTimeHere in session if it doesn't exist
+    if (req.session.firstTimeHere === undefined) {
+        req.session.firstTimeHere = true;
+    }
+
+    console.log('What is req.session.firstTimeHere?', req.session.firstTimeHere);
+
     const lobby = lobbies.find((lobby) => lobby.id === lobbyId);
+
+    // Handle invalid lobbies
     if (!lobby) {
-        if(lobbyId === "home"){
+        if (lobbyId === "home") {
             return res.render('home');
         }
         console.log(`Lobby ${lobbyId} not found.`);
-        return res.redirect('home'); // Redirect to home if lobby doesn't exist
+        return res.redirect('/'); // Redirect to root if lobby doesn't exist
     }
-    // If no username, redirect to home
+
+    // If username exists AND user is already in the game, don't force a redirect
+    if (req.session.username) {
+        console.log(`User "${req.session.username}" is trying to join lobby: ${lobbyId}`);
+        return res.render('game', { username: req.session.username, lobbyId });
+    }
+
+    // If no username, handle first-time logic
     if (!req.session.username) {
-        firstTimeHere++;
-        console.log(`Here is first time here ${firstTimeHere}`);
-        if(firstTimeHere >= 2){
-            firstTimeHere = 0;
-            return res.redirect('home');
+        console.log(`Here is firstTimeHere: ${req.session.firstTimeHere}`);
+
+        if (!req.session.firstTimeHere) {
+            req.session.firstTimeHere = true; // Reset for next time
+            console.log(`Redirecting to root because firstTimeHere is false.`);
+            return res.redirect('/'); // Clean redirect to home
         }
-        console.log(`Redirecting to home: Missing username for lobby ${lobbyId}`);
+
+        req.session.firstTimeHere = false; // Mark that we've been here once
+        console.log(`Rendering home page with lobby ID: ${lobbyId}`);
         return res.render('home', { username: null, lobbyId }); // Pass lobbyId to the home page
     }
-    
+
+    console.log(`Rendering game page for lobby: ${lobbyId}`);
     res.render('game', { username: req.session.username, lobbyId });
 });
+
+
 
 app.get('/home', (req,res) => {
     res.render('home', { username: req.session.username });
