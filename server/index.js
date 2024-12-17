@@ -11,6 +11,7 @@ const he = require('he');
 const users = {};
 const helmet = require('helmet');
 const MongoStore = require('connect-mongo');
+const Question = require('./models/Question');
 const PORT = process.env.PORT || 3000;
 const disconnectedUsers = {};
 app.set('views', path.join(__dirname, '../client/views'));
@@ -29,7 +30,6 @@ const io = new Server(server, {
 const mongoose = require('mongoose');
 mongoose.connect(process.env.MONGO_URI).then(() => console.log('Connected')).catch(err => console.error(err));
 const mongoUri = process.env.MONGO_URI;
-console.log(mongoUri);
 app.set('trust proxy', 1); 
 const sessionMiddleware = session({
     secret: 'your-secret-key', 
@@ -37,7 +37,9 @@ const sessionMiddleware = session({
     saveUninitialized: true,
     store: new MongoStore({
         mongoUrl: process.env.MONGO_URI,
-        ttl: 14 * 24 * 60 * 60, 
+        ttl: 14 * 24 * 60,
+        autoRemove: 'interval',
+        autoRemoveInterval: 10,
     }),
     cookie: {
         secure: process.env.NODE_ENV === 'production', // Only secure in production
@@ -97,11 +99,6 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use((req, res, next) => {
-    console.log('Cookies:', req.cookies);
-    next();
-});
-
 const triviaQuestions = [
     { question: 'What is the capital of France?', options: ['Paris', 'London', 'Berlin', 'Madrid'], answer: 'Paris' },
     { question: 'Which planet is closest to the sun?', options: ['Venus', 'Mars', 'Mercury', 'Earth'], answer: 'Mercury' },
@@ -153,40 +150,68 @@ const triviaQuestions = [
     { question: 'Who painted the Starry Night?', options: ['Van Gogh', 'Da Vinci', 'Picasso', 'Monet'], answer: 'Van Gogh' },
 ];
 
-const fetchQuestionsFromAPI = async (amount, category ='any', difficulty = 'any') => {
-    const categoryParam = category !== 'any' ? `&category=${category}` : '';
-    const difficultyParam = difficulty !== 'any' ? `&difficulty=${difficulty}` : '';
-    const url = `https://opentdb.com/api.php?amount=${amount}${categoryParam}${difficultyParam}&type=multiple`;
+const fetchQuestionsFromDB = async (amount, category = 'any', difficulty = 'any') => {
+    const filter = {};
+    if (category !== 'any') {
+        filter.category = category;
+    }
     try {
-        const response = await axios.get(url);
-        const data = await response.data;
-
-        if (data.response_code !== 0 || !data.results) {
-            console.error("Failed to fetch trivia questions:", data);
-            return [];
+        const size = Number(amount); 
+        if (isNaN(size) || size <= 0) {
+            throw new Error(`Invalid "amount" value: ${amount}. Must be a positive number.`);
         }
 
-        if (data.results.length < amount) {
-            console.warn(
-                `Requested ${amount} questions, but only ${data.results.length} are available.`
-            );
-        }
+        let questions = [];
 
-        return data.results.map((item) => ({
-            question: he.decode(item.question), 
-            options: shuffleArray([
-                ...item.incorrect_answers.map(he.decode), 
-                he.decode(item.correct_answer), 
-            ]),
-            answer: he.decode(item.correct_answer), 
+        if (difficulty === 'any') {
+            const easySize = Math.floor(size * 0.6);
+            const mediumSize = Math.floor(size * 0.3);
+            const hardSize = size - (easySize + mediumSize);
+            const [easyQuestions, mediumQuestions, hardQuestions] = await Promise.all([
+                Question.aggregate([
+                    { $match: { ...filter, difficulty: 'easy' } },
+                    { $sample: { size: easySize } },
+                ]),
+                Question.aggregate([
+                    { $match: { ...filter, difficulty: 'medium' } },
+                    { $sample: { size: mediumSize } },
+                ]),
+                Question.aggregate([
+                    { $match: { ...filter, difficulty: 'hard' } },
+                    { $sample: { size: hardSize } },
+                ]),
+            ]);
+            questions = [...easyQuestions, ...mediumQuestions, ...hardQuestions];
+        } else {
+            questions = await Question.aggregate([
+                { $match: { ...filter, difficulty } },
+                { $sample: { size } },
+            ]);
+        }
+        const uniqueQuestions = [];
+        const seenQuestions = new Set();
+        for (const question of questions) {
+            if (!seenQuestions.has(question.question)) {
+                uniqueQuestions.push(question);
+                seenQuestions.add(question.question);
+            }
+        }
+        const additionalSize = size - uniqueQuestions.length;
+        if (additionalSize > 0) {
+            const additionalQuestions = await Question.aggregate([
+                { $match: { _id: { $nin: uniqueQuestions.map(q => q._id) } } },
+                { $sample: { size: additionalSize } },
+            ]);
+
+            uniqueQuestions.push(...additionalQuestions);
+        }
+        return uniqueQuestions.map((item) => ({
+            question: item.question,
+            options: shuffleArray(item.options),
+            answer: item.answer,
         }));
     } catch (error) {
-        if (error.response?.status === 429) {
-            console.warn("Rate limit hit. Retrying after 1 second...");
-            await new Promise((resolve) => setTimeout(resolve, 500)); // Wait .5 seconds
-            return fetchQuestionsFromAPI(amount, category, difficulty); 
-        }
-        console.error("Error fetching trivia questions:", error);
+        console.error('Error fetching questions from the database:', error);
         return [];
     }
 };
@@ -268,6 +293,21 @@ io.on('connection', (socket) => {
             } else {
                 broadcastLeaderboard(lobby);
             }
+        }
+    });
+    socket.on('leave-game', ({ username }) => {
+        console.log(`User ${username} is leaving the game.`);
+        
+        // Find the user's session and clear targetLobbyId
+        if (socket.request.session) {
+            socket.request.session.targetLobbyId = null;
+            socket.request.session.save((err) => {
+                if (err) {
+                    console.error('Error saving session on leave-game:', err);
+                } else {
+                    console.log(`Cleared targetLobbyId for user: ${username}`);
+                }
+            });
         }
     });
     
@@ -420,13 +460,7 @@ function handleSubmitAnswer(socket, answer) {
     if (lobby.playersAnswered[socket.id]) {
         console.log(`User ${username} already answered. Ignoring.`);
         return;
-    }
-
-    
-    console.log('Submitted Answer:', answer);
-    console.log('Correct Answer:', lobby.currentQuestion?.answer);
-
-    
+    }    
     const submittedAnswer = answer?.trim().toLowerCase();
     const correctAnswer = lobby.currentQuestion?.answer.trim().toLowerCase();
     const isCorrect = submittedAnswer === correctAnswer;
@@ -468,7 +502,6 @@ function handleSubmitAnswer(socket, answer) {
 
     
     if (Object.keys(lobby.playersAnswered).length === lobby.players.length) {
-        console.log(`All players have answered in lobby ${lobby.id}. Stopping the timer.`);
         clearInterval(lobby.gameTimer); 
         endQuestion(lobby); 
     }
@@ -484,7 +517,13 @@ function handleDisconnect(socket) {
     );
 
     if (lobby) {
-        
+        socket.request.session.destroy((err) => {
+            if (err) {
+                console.error('Failed to destroy session:', err);
+            } else {
+                console.log(`${username}'s session destroyed on disconnect.`);
+            }
+        });
         lobby.players = lobby.players.filter(
             (player) => player.username !== username
         );
@@ -604,7 +643,7 @@ const sendQuestion = async (lobby) => {
     }
 
     if(lobby.currentQuestionNumber == 0){
-        questions = await fetchQuestionsFromAPI(
+        questions = await fetchQuestionsFromDB(
             lobby.totalQuestions,
             lobby.selectedCategory,
             lobby.selectedDifficulty
@@ -642,8 +681,6 @@ const sendQuestion = async (lobby) => {
     }
     lobby.currentQuestionNumber++;
     lobby.timeLeft = 15;
-    console.log('Current Question Number: ', lobby.currentQuestionNumber, ' of lobby ID: ', lobby.id);
-    console.log('Total Questions.Length: ', lobby.totalQuestions, ' of lobby ID: ', lobby.id);
     if (lobby.currentQuestionNumber > lobby.totalQuestions) {
         
         const sortedScores = lobby.players.map((player) => ({
@@ -800,28 +837,24 @@ server.listen(PORT, () => {
     console.log(`Server listening on http://localhost:${PORT}`);
 });
 app.post('/game', (req, res) => {
-    const { name } = req.body;
+    const { name, lobbyId } = req.body;
 
     if (!name || name.trim() === '') {
         console.log('Rejected: No username provided.');
         return res.redirect('/'); 
     }
-    console.log('Session data at /game POST:', req.session); 
     req.session.username = name.trim().substring(0, 12);
-    const targetLobbyId = req.query.lobbyId || req.session.targetLobbyId;
-    req.session.targetLobbyId = null;
-    if (targetLobbyId) {
+    if (lobbyId) {
         
         req.session.save((err) => {
             if (err) {
                 console.error('Session save error:', err);
                 return res.redirect('/');
             }
-            res.redirect(`/game/${targetLobbyId}`);
+            res.redirect(`/game/${lobbyId}`);
             
         });
     } else {
-        
         req.session.save((err) => {
             if (err) {
                 console.error('Session save error:', err);
@@ -830,34 +863,52 @@ app.post('/game', (req, res) => {
             res.redirect('/game'); 
         });
     }
-    req.session.targetLobbyId = null;
 });
 
 app.get('/game', (req, res) => {
     if (!req.session.username) {
         return res.redirect('/');
     }
-    
     res.render('game', { username: req.session.username, lobbyId: null });
 });
+let firstTimeHere = 0;
 app.get('/game/:lobbyId', (req, res) => {
     const { lobbyId } = req.params;
-
-    if (!req.session.username) {
-        req.session.targetLobbyId = lobbyId; 
-        console.log("Redirecting back to main menu with lobby ID: ", lobbyId);
-        return res.redirect('/'); 
+    
+    const lobby = lobbies.find((lobby) => lobby.id === lobbyId);
+    if (!lobby) {
+        if(lobbyId === "home"){
+            return res.render('home');
+        }
+        console.log(`Lobby ${lobbyId} not found.`);
+        return res.redirect('home'); // Redirect to home if lobby doesn't exist
     }
-
+    // If no username, redirect to home
+    if (!req.session.username) {
+        firstTimeHere++;
+        console.log(`Here is first time here ${firstTimeHere}`);
+        if(firstTimeHere >= 2){
+            firstTimeHere = 0;
+            return res.redirect('home');
+        }
+        console.log(`Redirecting to home: Missing username for lobby ${lobbyId}`);
+        return res.render('home', { username: null, lobbyId }); // Pass lobbyId to the home page
+    }
+    
     res.render('game', { username: req.session.username, lobbyId });
 });
 
-app.get('*', (req, res) => {
+app.get('/home', (req,res) => {
     res.render('home', { username: req.session.username });
+})
+
+app.get('*', (req, res) => {
+    res.redirect('home');
 });
 
+
+
 app.post('/create-custom-game', (req, res) => {
-    console.log('am fired');
     const { name } = req.body;
 
     if (!name || name.trim() === '') {
@@ -886,7 +937,6 @@ app.post('/create-custom-game', (req, res) => {
     };
 
     lobbies.push(lobby);
-    console.log('Created custom lobby:', lobby.id);
 
     req.session.save((err) => {
         if (err) {

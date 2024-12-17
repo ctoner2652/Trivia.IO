@@ -35,7 +35,7 @@ align-items: center;
 min-height: 100vh; 
 min-width: 100vw;
 margin: 0;
-background-image: url("images/wallpapertile.png");
+background-image: url("/images/wallpapertile.png");
 background-repeat: repeat; 
 font-family: Arial, sans-serif;
 }
@@ -202,6 +202,7 @@ transform: translateY(-10px);
                     </div>
                 </div>
             </div>
+            <input type="hidden" name="lobbyId" id="hidden-lobbyId">
             <button type="submit" class="btn play-game btn-success w-100">Play!</button>
         </form>
         <form id="custom-form" action="/create-custom-game" method="post" class="mb-0">
@@ -210,62 +211,178 @@ transform: translateY(-10px);
         </form>
     </main>
 </div>
-    
     <script>
-    document.getElementById('name-form').addEventListener('submit', (e) => {
-    const username = document.getElementById('username').value.trim();
-    const avatar = document.getElementById('avatar');
+            document.getElementById('name-form').addEventListener('submit', (e) => {
+            const username = document.getElementById('username').value.trim();
+            const avatar = document.getElementById('avatar');
+            if (!username) {
+                e.preventDefault();
+                alert('Please enter a username.');
+                return;
+            }
 
-    if (!username) {
-        e.preventDefault();
-        alert('Please enter a username.');
-        return;
+            // Save username and avatar locally before submitting
+            localStorage.setItem('username', username);
+            localStorage.setItem('avatar', avatar.src);
+            const lobbyIdMatch = window.location.pathname.match(/\/game\/(Lobby-[a-f0-9\-]+)/i);
+            const lobbyId = lobbyIdMatch ? lobbyIdMatch[1] : null;
+
+            // Set the hidden input value
+            if (lobbyId) {
+                document.getElementById('hidden-lobbyId').value = lobbyId;
+            }
+            // Let the form handle submission to the server
+            });
+
+
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const lobbyId = urlParams.get('lobbyId');
+            if (lobbyId) {
+                localStorage.setItem('targetLobbyId', lobbyId);
+            }
+            
+            document.getElementById('custom-form').addEventListener('submit', (e) => {
+            const username = document.getElementById('username').value.trim();
+            const avatar = document.getElementById('avatar').src;
+
+            if (!username) {
+                e.preventDefault();
+                alert('Please enter a username before creating a private room.');
+                return;
+            }
+
+            // Save the username and avatar in localStorage
+            localStorage.setItem('username', username);
+            localStorage.setItem('avatar', avatar);
+
+            // Update the hidden input value for submission
+            document.getElementById('hidden-username').value = username;
+        });
+            const error = urlParams.get('error');
+
+            if (error === 'username-taken') {
+                const errorMessage = document.createElement('div');
+                errorMessage.textContent = 'The username is already in use. Please choose a different username.';
+                errorMessage.classList.add('error-message');
+                const form = document.getElementById('name-form');
+                form.parentNode.insertBefore(errorMessage, form);
+            }
+            document.addEventListener("DOMContentLoaded", () => {
+    const avatarImg = document.getElementById("avatar");
+    const storedAvatar = localStorage.getItem("avatar");
+
+    // If an avatar exists in localStorage, use it
+    if (storedAvatar) {
+        avatarImg.src = storedAvatar;
+    } else {
+        // Otherwise, update with default avatar config
+        updateAvatar();
     }
 
-    // Save username and avatar locally before submitting
-    localStorage.setItem('username', username);
-    localStorage.setItem('avatar', avatar.src);
+    // Default avatar config
+    const defaultAvatarConfig = {
+        topType: "ShortHairShortCurly",
+        eyeType: "Happy",
+        clothesType: "Hoodie",
+    };
 
-    // Let the form handle submission to the server
-    });
+    const avatarConfig = JSON.parse(localStorage.getItem("avatarConfig")) || { ...defaultAvatarConfig };
 
+    const topTypes = [
+        "NoHair",
+        "ShortHairShortCurly",
+        "ShortHairDreads01",
+        "ShortHairDreads02",
+        "ShortHairFrizzle",
+        "LongHairStraight",
+        "Hat",
+        "Hijab",
+        "WinterHat1",
+        "WinterHat2",
+        "Turban",
+    ];
+    const eyeTypes = ["Happy", "Wink", "Surprised", "Close", "Cry", "Squint", "Dizzy"];
+    const clothesTypes = [
+        "BlazerShirt",
+        "BlazerSweater",
+        "Hoodie",
+        "ShirtCrewNeck",
+        "ShirtVNeck",
+        "GraphicShirt",
+        "CollarSweater",
+    ];
 
+    let currentTopIndex = topTypes.indexOf(avatarConfig.topType);
+    let currentEyeIndex = eyeTypes.indexOf(avatarConfig.eyeType);
+    let currentClothesIndex = clothesTypes.indexOf(avatarConfig.clothesType);
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const lobbyId = urlParams.get('lobbyId');
-        if (lobbyId) {
-            localStorage.setItem('targetLobbyId', lobbyId);
-        }
-        
-        document.getElementById('custom-form').addEventListener('submit', (e) => {
-        const username = document.getElementById('username').value.trim();
-        const avatar = document.getElementById('avatar').src;
+    // Function to update avatar URL and save config
+    function updateAvatar() {
+        const avatarURL = `https://avataaars.io/?avatarStyle=Circle&topType=${avatarConfig.topType}&eyeType=${avatarConfig.eyeType}&clotheType=${avatarConfig.clothesType}`;
+        avatarImg.src = avatarURL;
 
-        if (!username) {
-            e.preventDefault();
-            alert('Please enter a username before creating a private room.');
+        // Save updated config to localStorage
+        localStorage.setItem("avatarConfig", JSON.stringify(avatarConfig));
+    }
+
+    // Attach event listeners to avatar customization buttons
+    function attachAvatarEventListeners() {
+        const leftTop = document.getElementById("left-top");
+        const rightTop = document.getElementById("right-top");
+        const leftEyes = document.getElementById("left-eyes");
+        const rightEyes = document.getElementById("right-eyes");
+        const leftClothes = document.getElementById("left-clothes");
+        const rightClothes = document.getElementById("right-clothes");
+
+        if (!leftTop || !rightTop || !leftEyes || !rightEyes || !leftClothes || !rightClothes) {
+            console.error("Avatar customization buttons are missing from the DOM.");
             return;
         }
 
-        // Save the username and avatar in localStorage
-        localStorage.setItem('username', username);
-        localStorage.setItem('avatar', avatar);
+        leftTop.addEventListener("click", () => {
+            currentTopIndex = (currentTopIndex - 1 + topTypes.length) % topTypes.length;
+            avatarConfig.topType = topTypes[currentTopIndex];
+            updateAvatar();
+        });
 
-        // Update the hidden input value for submission
-        document.getElementById('hidden-username').value = username;
-    });
-        const error = urlParams.get('error');
+        rightTop.addEventListener("click", () => {
+            currentTopIndex = (currentTopIndex + 1) % topTypes.length;
+            avatarConfig.topType = topTypes[currentTopIndex];
+            updateAvatar();
+        });
 
-        if (error === 'username-taken') {
-            const errorMessage = document.createElement('div');
-            errorMessage.textContent = 'The username is already in use. Please choose a different username.';
-            errorMessage.classList.add('error-message');
-            const form = document.getElementById('name-form');
-            form.parentNode.insertBefore(errorMessage, form);
-        }
-        
+        leftEyes.addEventListener("click", () => {
+            currentEyeIndex = (currentEyeIndex - 1 + eyeTypes.length) % eyeTypes.length;
+            avatarConfig.eyeType = eyeTypes[currentEyeIndex];
+            updateAvatar();
+        });
+
+        rightEyes.addEventListener("click", () => {
+            currentEyeIndex = (currentEyeIndex + 1) % eyeTypes.length;
+            avatarConfig.eyeType = eyeTypes[currentEyeIndex];
+            updateAvatar();
+        });
+
+        leftClothes.addEventListener("click", () => {
+            currentClothesIndex = (currentClothesIndex - 1 + clothesTypes.length) % clothesTypes.length;
+            avatarConfig.clothesType = clothesTypes[currentClothesIndex];
+            updateAvatar();
+        });
+
+        rightClothes.addEventListener("click", () => {
+            currentClothesIndex = (currentClothesIndex + 1) % clothesTypes.length;
+            avatarConfig.clothesType = clothesTypes[currentClothesIndex];
+            updateAvatar();
+        });
+    }
+
+    // Initial setup: update avatar and attach event listeners
+    updateAvatar();
+    attachAvatarEventListeners();
+});
     </script>
-    <script src="scripts/avatar-customization.js" type="module"></script>
+    <!-- <script src="scripts/avatar-customization.js" type="module"></script> -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 </body>
 </html>

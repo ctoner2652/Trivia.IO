@@ -1,11 +1,13 @@
 const avatarImg = document.getElementById("avatar");
 
 // Default avatar config
-const avatarConfig = {
+const defaultAvatarConfig = {
   topType: "ShortHairShortCurly",
   eyeType: "Happy",
   clothesType: "Hoodie",
 };
+
+const avatarConfig = JSON.parse(localStorage.getItem("avatarConfig")) || { ...defaultAvatarConfig };
 
 // Options for customization
 const topTypes = [
@@ -41,6 +43,8 @@ let currentClothesIndex = clothesTypes.indexOf(avatarConfig.clothesType);
 function updateAvatar() {
     const avatarURL = `https://avataaars.io/?avatarStyle=Circle&topType=${avatarConfig.topType}&eyeType=${avatarConfig.eyeType}&clotheType=${avatarConfig.clothesType}`;
     avatarImg.src = avatarURL;
+
+    localStorage.setItem("avatarConfig", JSON.stringify(avatarConfig));
   }
 
 // Event listeners for arrows

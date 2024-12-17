@@ -27,7 +27,7 @@ const categories = [
     { id: "14", name: "Entertainment: Television" },
     { id: "15", name: "Entertainment: Video Games" },
     { id: "16", name: "Entertainment: Board Games" },
-    { id: "17", name: "Science & Nature" },
+    { id: "17", name: "Science &amp; Nature" },
     { id: "18", name: "Science: Computers" },
     { id: "19", name: "Science: Mathematics" },
     { id: "20", name: "Mythology" },
@@ -36,13 +36,12 @@ const categories = [
     { id: "23", name: "History" },
     { id: "24", name: "Politics" },
     { id: "25", name: "Art" },
-    { id: "26", name: "Celebrities" },
+    { id: "26", name: "Celebrities" }, 
     { id: "27", name: "Animals" },
     { id: "28", name: "Vehicles" },
     { id: "29", name: "Entertainment: Comics" },
-    { id: "30", name: "Science: Gadgets" },
-    { id: "31", name: "Entertainment: Japanese Anime & Manga" },
-    { id: "32", name: "Entertainment: Cartoon & Animations" }
+    { id: "30", name: "Science: Gadgets" }, 
+    { id: "32", name: "Entertainment: Cartoon & Animations" } 
 ];
 
 function updateAppHeight() {
@@ -62,8 +61,7 @@ if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
 
 socket.on('connect', () => {
     const avatar = localStorage.getItem('avatar') || 'default-avatar-url';
-
-    
+    console.log(localStorage.getItem('targetLobbyId'));
     let customLobbyId = window.location.pathname.split('/')[2] || null;
     console.log(customLobbyId);
     if (customLobbyId) {
@@ -78,16 +76,19 @@ socket.on('connect', () => {
 });
 
 
-if (!localStorage.getItem('username')) {
-    window.location.href = '/'; 
-}
+// if (!localStorage.getItem('username')) {
+//     window.location.href = '/'; 
+// }
 
-if (performance.navigation.type === performance.navigation.TYPE_RELOAD) {
-    console.log('Page refreshed, clearing localStorage.');
-    localStorage.clear();
-    sessionStorage.clear();
-    window.location.href = '/'; 
-}
+// if (performance.navigation.type === performance.navigation.TYPE_RELOAD) {
+//     socket.close();
+//     console.log('Page refreshed, clearing localStorage and notifying the server.');
+//     localStorage.clear();
+//     sessionStorage.clear();
+//     wwindow.location.replace('/');
+    
+// }
+
 
 chatInput.addEventListener('input', () => {
     const charCount = chatInput.value.length;
@@ -121,7 +122,6 @@ socket.on('update-button-states', (buttonStates) => {
         button.disabled = true;
     });
 });
-
 socket.on('host-status', ({ isHost }) => {
     if (isHost) {
         document.getElementById('waiting-room').style.display = 'block';
@@ -158,12 +158,10 @@ socket.on('host-status', ({ isHost }) => {
         });
     }
 });
-
-
 const categorySelect = document.getElementById('category-select');
 categories.forEach(category => {
     const option = document.createElement('option');
-    option.value = category.id;
+    option.value = category.name;
     option.textContent = category.name;
     categorySelect.appendChild(option);
 });
