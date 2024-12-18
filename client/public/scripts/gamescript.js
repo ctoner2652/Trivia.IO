@@ -13,7 +13,7 @@ const socket = io(
 const questionElement = document.getElementById('question');
 const optionsContainer = document.getElementById('answer-form');
 const topBarTimer = document.querySelector('.timer');
-
+let clientSocketId = null;
 const chatInput = document.getElementById('chat-input');
 const charCounter = document.getElementById('char-counter');
 
@@ -60,6 +60,7 @@ if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
 
 
 socket.on('connect', () => {
+    clientSocketId = socket.id;
     const avatar = localStorage.getItem('avatar') || 'default-avatar-url';
     let customLobbyId = window.location.pathname.split('/')[2] || null;
     if (customLobbyId) {
@@ -326,20 +327,14 @@ document.getElementById('restart-button').addEventListener('click', () => {
 
 
 
-socket.on('update-leaderboard', (scores, avatars) => {
+socket.on('update-leaderboard', ({ updatedScores, updatedAvatars }) => {
     const leaderboard = document.getElementById('leaderboard');
-    leaderboard.innerHTML = ''; 
+    leaderboard.innerHTML = ''; // Clear existing leaderboard
 
-    const sortedPlayers = Object.entries(scores).sort(([, a], [, b]) => b - a);
-
-    sortedPlayers.forEach(([player, score], index) => {
+    // Sort players by score in descending order
+    updatedScores.sort((a, b) => b.score - a.score).forEach(({ socketId, username, score }, index) => {
         const playerDiv = document.createElement('div');
         playerDiv.className = 'leaderboard-player';
-
-        const username = localStorage.getItem('username');
-        if (player === username) {
-            playerDiv.classList.add('you');
-        }
 
         const rankDiv = document.createElement('div');
         rankDiv.className = 'leaderboard-rank';
@@ -347,14 +342,15 @@ socket.on('update-leaderboard', (scores, avatars) => {
 
         const infoDiv = document.createElement('div');
         infoDiv.className = 'leaderboard-info';
-        if (player === username) {
-            infoDiv.innerHTML = `<strong>${player} (You)</strong><br><span class="leaderboard-points">${score} points</span>`;
+        if (socketId === clientSocketId) {
+            infoDiv.innerHTML = `<strong>${username} (You)</strong><br><span class="leaderboard-points">${score} points</span>`;
+            playerDiv.classList.add('you');
         } else {
-            infoDiv.innerHTML = `<strong>${player}</strong><br><span class="leaderboard-points">${score} points</span>`;
+            infoDiv.innerHTML = `<strong>${username}</strong><br><span class="leaderboard-points">${score} points</span>`;
         }
 
         const avatarDiv = document.createElement('div');
-        avatarDiv.innerHTML = `<img src="${avatars[player]}" class="leaderboard-avatar">`;
+        avatarDiv.innerHTML = `<img src="${updatedAvatars[socketId]}" class="leaderboard-avatar">`;
 
         playerDiv.appendChild(rankDiv);
         playerDiv.appendChild(infoDiv);
@@ -363,6 +359,7 @@ socket.on('update-leaderboard', (scores, avatars) => {
         leaderboard.appendChild(playerDiv);
     });
 });
+
 
 socket.on('remove-player', ({ username }) => {
     const leaderboard = document.getElementById('leaderboard');
@@ -455,7 +452,7 @@ function displayMessage(text, type, isEven) {
             div.style.color = '#155724';
             break;
         case 'promoted':
-            div.style.color = 'yellow';
+            div.style.color = 'blue';
             break;
         default:
             div.style.backgroundColor = isEven ? '#e0e0e0' : '#f9f9f9';

@@ -246,7 +246,6 @@ io.on('connection', (socket) => {
     socket.on('submit-answer', (answer) => handleSubmitAnswer(socket, answer));
     socket.on('send-message', (message) => handleSendMessage(socket, message));
     socket.on('disconnect', () => handleDisconnect(socket));
-    socket.on('reconnect', () => handleReconnect(socket));
     socket.on('start-game', ({ questionCount, selectedCategory, selectedDifficulty }) => {
         const lobby = lobbies.find((lobby) =>
             lobby.players.some((player) => player.socketId === socket.id && lobby.host === socket.id)
@@ -543,8 +542,9 @@ function handleDisconnect(socket) {
     );
 
     if (lobby) {
+
         lobby.players = lobby.players.filter(
-            (player) => player.username !== username
+            (player) => player.socketId !== socket.id
         );
 
         const leaveMessage = `${username} has left the lobby!`;
@@ -638,58 +638,19 @@ function handleSendMessage(socket, message) {
     io.to(lobby.id).emit('received-message', chatMessage);
 }
 
-function handleReconnect(socket) {
-    const username = socket.request.session.username;
-    if (disconnectedUsers[username]) {
-        clearTimeout(disconnectedUsers[username].timeout);
-        delete disconnectedUsers[username];
-        console.log(`User ${username} successfully reconnected.`);
-
-        const lobby = lobbies.find((lobby) =>
-            lobby.players.some((player) => player.username === username)
-        );
-
-        if (lobby) {
-            console.log(`${username} rejoined lobby: ${lobby.id}`);
-            socket.join(lobby.id);
-
-            
-            socket.emit('sync-lobby', {
-                chatLog: lobby.chatLog,
-                scores: lobby.scores,
-                avatars: lobby.avatars,
-                currentQuestion: lobby.currentQuestion,
-                timeLeft: lobby.timeLeft,
-                currentQuestionNumber: lobby.currentQuestionNumber,
-                totalQuestions: totalQuestions,
-            });
-
-            
-            broadcastLeaderboard(lobby);
-
-            
-            if (lobby.timeLeft > 0) {
-                socket.emit('update-timer', lobby.timeLeft);
-            }
-        } else {
-            console.error(`No lobby found for reconnected user: ${username}`);
-        }
-    }
-}
-
 function broadcastLeaderboard(lobby) {
-    const updatedScores = lobby.players.reduce((acc, player) => {
-        const { socketId, username } = player;
-        acc[username] = lobby.scores[socketId] || 0; 
-        return acc;
-    }, {});
+    const updatedScores = lobby.players.map((player) => ({
+        socketId: player.socketId, // Unique identifier
+        username: player.username, // Displayed username
+        score: lobby.scores[player.socketId] || 0, // Player's score
+    }));
 
     const updatedAvatars = lobby.players.reduce((acc, player) => {
-        acc[player.username] = player.avatar; 
+        acc[player.socketId] = player.avatar; // Map socket ID to avatar
         return acc;
     }, {});
 
-    io.to(lobby.id).emit('update-leaderboard', updatedScores, updatedAvatars);
+    io.to(lobby.id).emit('update-leaderboard', { updatedScores, updatedAvatars });
 }
 
 const sendQuestion = async (lobby) => {
