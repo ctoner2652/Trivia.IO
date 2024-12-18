@@ -276,17 +276,12 @@ io.on('connection', (socket) => {
         );
     
         if (lobby) {
-            // Remove the player from the lobby
             lobby.players = lobby.players.filter(player => player.socketId !== socket.id);
-    
-            // Notify other players
             io.to(lobby.id).emit('received-message', {
                 name: 'System',
                 message: `${username} has left the lobby!`,
                 type: 'leave',
             });
-    
-            // If the lobby is empty, delete it
             if (lobby.players.length === 0) {
                 clearLobbyTimers(lobby);
                 lobbies.splice(lobbies.indexOf(lobby), 1);
@@ -314,11 +309,8 @@ io.on('connection', (socket) => {
         const lobby = lobbies.find((l) => l.players.some((p) => p.socketId === socket.id));
     
         if (lobby) {
-            // Merge the new settings into the lobby's settings
             lobby.settings = { ...lobby.settings, ...newSettings };
             console.log(`Lobby ${lobby.id} updated settings:`, lobby.settings);
-    
-            // Broadcast updated settings to all players in the lobby
             io.to(lobby.id).emit('settings-updated', lobby.settings);
         }
     });
@@ -560,10 +552,10 @@ function handleDisconnect(socket) {
             type: 'join',
         });
         
-        // Handle host reassignment if the host leaves
+      
         if (lobby.host === socket.id) {
             if (lobby.players.length > 0) {
-                const newHost = lobby.players[0]; // Promote the first remaining player
+                const newHost = lobby.players[0]; 
                 lobby.host = newHost.socketId;
 
                 console.log(`Host left. New host assigned: ${newHost.username}`);
@@ -577,7 +569,7 @@ function handleDisconnect(socket) {
                     message: `${username} has disconnected. ${newHost.username} has been promoted to leader`,
                     type: 'promoted',
                 });
-                // Notify the new host and all players
+                
                 lobby.players.forEach((player) => {
                     const isHost = player.socketId === lobby.host;
                     io.to(player.socketId).emit('host-status', { isHost });
@@ -603,7 +595,7 @@ function handleDisconnect(socket) {
     }
 
     if (socket.request.session) {
-        socket.request.session.username = null; // Clear username
+        socket.request.session.username = null; 
         socket.request.session.leftLobby = true;
         socket.request.session.save((err) => {
             if (err) {
@@ -640,13 +632,13 @@ function handleSendMessage(socket, message) {
 
 function broadcastLeaderboard(lobby) {
     const updatedScores = lobby.players.map((player) => ({
-        socketId: player.socketId, // Unique identifier
-        username: player.username, // Displayed username
-        score: lobby.scores[player.socketId] || 0, // Player's score
+        socketId: player.socketId, 
+        username: player.username, 
+        score: lobby.scores[player.socketId] || 0, 
     }));
 
     const updatedAvatars = lobby.players.reduce((acc, player) => {
-        acc[player.socketId] = player.avatar; // Map socket ID to avatar
+        acc[player.socketId] = player.avatar; 
         return acc;
     }, {});
 
@@ -901,7 +893,6 @@ app.post('/game', (req, res) => {
 
 
 app.get('/game', (req, res) => {
-    // If no username exists, redirect to home page
     if (!req.session.username) {
         console.log('No username found. Redirecting to home page.');
         return res.render('home', { username: null, lobbyId: null });
@@ -918,22 +909,17 @@ app.get('/game/:lobbyId', (req, res) => {
         username: req.session.username,
         lobbyId,
     });
-
-    // If no username, redirect to home page with lobby ID intact
     if (!req.session.username) {
         console.log(`No username found. Rendering home page with lobby ID: ${lobbyId}`);
         return res.render('home', { username: null, lobbyId });
     }
 
-    // Check if the lobby exists
     const lobby = lobbies.find((l) => l.id === lobbyId);
 
     if (!lobby) {
         console.log(`Lobby ${lobbyId} not found. Redirecting to public game.`);
-        return res.redirect('/game'); // Redirect to public game
+        return res.redirect('/game'); 
     }
-
-    // Render the game page if the lobby is valid
     console.log(`Rendering game page for lobby: ${lobbyId} with username: ${req.session.username}`);
     res.render('game', { username: req.session.username, lobbyId });
 });

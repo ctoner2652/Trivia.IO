@@ -142,7 +142,6 @@ socket.on('host-status', ({ isHost }) => {
     if (isHost) {
         console.log('You are the host. Controls enabled.');
         startGameButton.disabled = true;
-            // Emit updated settings whenever the host changes a setting
         document.getElementById('question-count').addEventListener('change', () => {
             const questionCount = document.getElementById('question-count').value;
             socket.emit('update-settings', { questionCount });
@@ -158,12 +157,9 @@ socket.on('host-status', ({ isHost }) => {
             socket.emit('update-settings', { selectedDifficulty });
         });
 
-        // Update player list
         socket.on('update-player-list', (players) => {    
             startGameButton.disabled = players.length < 2;
         });
-
-        // Start Game Button Handler
         document.getElementById('start-game').onclick = () => {
             const questionCount = document.getElementById('question-count').value;
             const selectedCategory = document.getElementById('category-select').value;
@@ -171,8 +167,6 @@ socket.on('host-status', ({ isHost }) => {
             socket.emit('start-game', { questionCount, selectedCategory, selectedDifficulty });
             waitingRoom.style.display = 'none';
         };
-
-        // Copy URL Button Handler
         document.getElementById('copy-url').onclick = () => {
             const gameUrl = window.location.href;
             navigator.clipboard.writeText(gameUrl).then(() => {
@@ -187,7 +181,6 @@ socket.on('host-status', ({ isHost }) => {
 socket.on('settings-updated', (settings) => {
     console.log('Settings updated:', settings);
 
-    // Update the UI with the received settings
     if (settings.questionCount !== undefined) {
         document.getElementById('question-count').value = settings.questionCount;
     }

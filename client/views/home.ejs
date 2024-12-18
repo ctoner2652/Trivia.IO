@@ -220,18 +220,13 @@ transform: translateY(-10px);
                 alert('Please enter a username.');
                 return;
             }
-
-            // Save username and avatar locally before submitting
             localStorage.setItem('username', username);
             localStorage.setItem('avatar', avatar.src);
             const lobbyIdMatch = window.location.pathname.match(/\/game\/(Lobby-[a-f0-9\-]+)/i);
             const lobbyId = lobbyIdMatch ? lobbyIdMatch[1] : null;
-
-            // Set the hidden input value
             if (lobbyId) {
                 document.getElementById('hidden-lobbyId').value = lobbyId;
             }
-            // Let the form handle submission to the server
             });
 
 
@@ -251,12 +246,8 @@ transform: translateY(-10px);
                 alert('Please enter a username before creating a private room.');
                 return;
             }
-
-            // Save the username and avatar in localStorage
             localStorage.setItem('username', username);
             localStorage.setItem('avatar', avatar);
-
-            // Update the hidden input value for submission
             document.getElementById('hidden-username').value = username;
         });
             const error = urlParams.get('error');
@@ -271,10 +262,6 @@ transform: translateY(-10px);
             document.addEventListener("DOMContentLoaded", () => {
             const avatarImg = document.getElementById("avatar");
             const storedAvatar = localStorage.getItem("avatar");
-
-    // If an avatar exists in localStorage, use it
-
-    // Default avatar config
     const defaultAvatarConfig = {
         topType: "ShortHairShortCurly",
         eyeType: "Happy",
@@ -314,19 +301,17 @@ transform: translateY(-10px);
     if (storedAvatar) {
         avatarImg.src = storedAvatar;
     } else {
-        // Otherwise, update with default avatar config
+        
         updateAvatar();
     }
-    // Function to update avatar URL and save config
+    
     function updateAvatar() {
         const avatarURL = `https://avataaars.io/?avatarStyle=Circle&topType=${avatarConfig.topType}&eyeType=${avatarConfig.eyeType}&clotheType=${avatarConfig.clothesType}`;
         avatarImg.src = avatarURL;
 
-        // Save updated config to localStorage
+        
         localStorage.setItem("avatarConfig", JSON.stringify(avatarConfig));
     }
-
-    // Attach event listeners to avatar customization buttons
     function attachAvatarEventListeners() {
         const leftTop = document.getElementById("left-top");
         const rightTop = document.getElementById("right-top");
@@ -376,13 +361,10 @@ transform: translateY(-10px);
             updateAvatar();
         });
     }
-
-    // Initial setup: update avatar and attach event listeners
     updateAvatar();
     attachAvatarEventListeners();
 });
     </script>
-    <!-- <script src="scripts/avatar-customization.js" type="module"></script> -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 </body>
 </html>
