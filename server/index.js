@@ -249,7 +249,7 @@ io.on('connection', (socket) => {
     socket.on('reconnect', () => handleReconnect(socket));
     socket.on('start-game', ({ questionCount, selectedCategory, selectedDifficulty }) => {
         const lobby = lobbies.find((lobby) =>
-            lobby.players.some((player) => player.socketId === socket.id && player.isHost)
+            lobby.players.some((player) => player.socketId === socket.id && lobby.host === socket.id)
         );
     
         if (!lobby) {
@@ -266,7 +266,9 @@ io.on('connection', (socket) => {
         lobby.totalQuestions = questionCount;
         lobby.selectedDifficulty = selectedDifficulty;
         lobby.selectedCategory = selectedCategory;
-        sendQuestion(lobby); 
+        lobby.gameInProgress = true;
+        sendQuestion(lobby);
+        io.to(lobby.id).emit('game-started');
     });
     socket.on('leaveLobby', () => {
         const username = users[socket.id];
@@ -298,7 +300,6 @@ io.on('connection', (socket) => {
     socket.on('leave-game', ({ username }) => {
         console.log(`User ${username} is leaving the game.`);
         
-        // Find the user's session and clear targetLobbyId
         if (socket.request.session) {
             socket.request.session.targetLobbyId = null;
             socket.request.session.save((err) => {
@@ -310,7 +311,18 @@ io.on('connection', (socket) => {
             });
         }
     });
+    socket.on('update-settings', (newSettings) => {
+        const lobby = lobbies.find((l) => l.players.some((p) => p.socketId === socket.id));
     
+        if (lobby) {
+            // Merge the new settings into the lobby's settings
+            lobby.settings = { ...lobby.settings, ...newSettings };
+            console.log(`Lobby ${lobby.id} updated settings:`, lobby.settings);
+    
+            // Broadcast updated settings to all players in the lobby
+            io.to(lobby.id).emit('settings-updated', lobby.settings);
+        }
+    });
 });
 
 function updatePlayerList(lobby) {
@@ -358,6 +370,7 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
             currentQuestion: null,
             totalQuestions: 10,
             currentQuestionNumber: 0,
+            gameInProgress: true,
             timeLeft: 15,
             mainTimerEnded: false,
             gameTimer: null,
@@ -385,20 +398,34 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
     lobby.avatars[socket.id] = avatar;
     updatePlayerList(lobby);
     socket.join(lobby.id);
-
     if(isHost){
-        socket.emit('host-status', {isHost: true});
+            lobby.host = socket.id;
+            socket.emit('sync-lobby', {
+                currentQuestion: lobby.currentQuestion,
+                timeLeft: lobby.timeLeft,
+                currentQuestionNumber: lobby.currentQuestionNumber,
+                totalQuestions: lobby.totalQuestions,
+                chatLog: lobby.chatLog,
+                scores: lobby.scores,
+                gameInProgress: lobby.gameInProgress,
+                avatars: lobby.avatars,
+            });
+            socket.emit('host-status', {isHost: true});
+    }else{
+        socket.emit('sync-lobby', {
+            currentQuestion: lobby.currentQuestion,
+            timeLeft: lobby.timeLeft,
+            currentQuestionNumber: lobby.currentQuestionNumber,
+            totalQuestions: lobby.totalQuestions,
+            chatLog: lobby.chatLog,
+            scores: lobby.scores,
+            gameInProgress: lobby.gameInProgress,
+            avatars: lobby.avatars,
+        });
+        socket.emit('host-status', {isHost: false});
+        socket.emit('settings-updated', lobby.settings);
     }
-    
-    socket.emit('sync-lobby', {
-        currentQuestion: lobby.currentQuestion,
-        timeLeft: lobby.timeLeft,
-        currentQuestionNumber: lobby.currentQuestionNumber,
-        totalQuestions: lobby.totalQuestions,
-        chatLog: lobby.chatLog,
-        scores: lobby.scores,
-        avatars: lobby.avatars,
-    });
+
 
     
     
@@ -412,6 +439,7 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
 
     if (!lobby.isCustom && lobby.players.length === 1) {
         sendQuestion(lobby);
+        io.to(lobby.id).emit('game-started');
     }
 }
 
@@ -515,13 +543,6 @@ function handleDisconnect(socket) {
     );
 
     if (lobby) {
-        // socket.request.session.destroy((err) => {
-        //     if (err) {
-        //         console.error('Failed to destroy session:', err);
-        //     } else {
-        //         console.log(`${username}'s session destroyed on disconnect.`);
-        //     }
-        // });
         lobby.players = lobby.players.filter(
             (player) => player.username !== username
         );
@@ -539,6 +560,35 @@ function handleDisconnect(socket) {
             type: 'join',
         });
         
+        // Handle host reassignment if the host leaves
+        if (lobby.host === socket.id) {
+            if (lobby.players.length > 0) {
+                const newHost = lobby.players[0]; // Promote the first remaining player
+                lobby.host = newHost.socketId;
+
+                console.log(`Host left. New host assigned: ${newHost.username}`);
+                io.to(lobby.id).emit('received-message', {
+                    name: 'System',
+                    message: `${username} has disconnected. ${newHost.username} has been promoted to leader`,
+                    type: 'promoted',
+                });
+                lobby.chatLog.push({
+                    name: 'System',
+                    message: `${username} has disconnected. ${newHost.username} has been promoted to leader`,
+                    type: 'promoted',
+                });
+                // Notify the new host and all players
+                lobby.players.forEach((player) => {
+                    const isHost = player.socketId === lobby.host;
+                    io.to(player.socketId).emit('host-status', { isHost });
+                });
+            } else {
+                console.log(`Lobby ${lobby.id} is empty. Deleting the lobby.`);
+                clearLobbyTimers(lobby);
+                lobbies.splice(lobbies.indexOf(lobby), 1);
+            }
+        }
+
         if (lobby.players.length === 0) {
             clearLobbyTimers(lobby);
             console.log(`Deleted empty lobby: ${lobby.id}`);
@@ -832,16 +882,28 @@ function resetGame(lobby) {
     
     broadcastLeaderboard(lobby);
 
+    if(!lobby.isCustom){
+        setTimeout(() => {
+            if(lobby.players.length > 0){
+                console.log(`Starting a new game for lobby: ${lobby.id}`);
+                sendQuestion(lobby);
+            }else{
+                return;
+            }
+            
+        }, 5000); 
+    }else{
+        setTimeout(() => {
+            lobby.players.forEach((player) => {
+                const isHost = player.socketId === lobby.host;
+                io.to(player.socketId).emit('host-status', { isHost });
+            });
+        io.to(lobby.id).emit('end-round')
+        lobby.gameInProgress = false;
+        updatePlayerList(lobby);
+        }, 5000);
+    }
     
-    setTimeout(() => {
-        if(lobby.players.length > 0){
-            console.log(`Starting a new game for lobby: ${lobby.id}`);
-            sendQuestion(lobby);
-        }else{
-            return;
-        }
-        
-    }, 5000); 
 }
 
 server.listen(PORT, () => {
@@ -948,6 +1010,7 @@ app.post('/create-custom-game', (req, res) => {
         avatars: {},
         playersAnswered: {},
         leaderboard: {},
+        gameInProgress: false,
         currentQuestion: null,
         currentQuestionNumber: 0,
         timeLeft: 15,

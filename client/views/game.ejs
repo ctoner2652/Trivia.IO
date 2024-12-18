@@ -314,13 +314,14 @@
                             </div>
                             <button id="restart-button" class="btn btn-success mt-3">Return to Main Menu</button>
                         </div>
-                        <div id="waiting-room" style="display: none;" class="waiting-room-container">
+                        <div id="waiting-room" class="waiting-room-container" style="display: none;">
                             <h2 class="waiting-room-title">Waiting Room</h2>
                             <p id="waiting-message" class="waiting-room-message">Waiting for players to join...</p>
                             <ul id="player-list" class="player-list"></ul>
+                        
                             <div class="waiting-room-controls">
                                 <label for="question-count" class="control-label">Number of Questions:</label>
-                                <select id="question-count" class="control-select">
+                                <select id="question-count" class="control-select" disabled>
                                     <option value="5" selected>5</option>
                                     <option value="10">10</option>
                                     <option value="15">20</option>
@@ -328,20 +329,20 @@
                                     <option value="40">40</option>
                                     <option value="50">50</option>
                                 </select>
+                        
                                 <label for="category-select">Select Category:</label>
-                                <select id="category-select">
-                                    
-                                </select>
-        
+                                <select id="category-select" disabled></select>
+                        
                                 <label for="difficulty-select">Select Difficulty:</label>
-                                <select id="difficulty-select">
+                                <select id="difficulty-select" disabled>
                                     <option value="any" selected>Any Difficulty</option>
                                     <option value="easy">Easy</option>
                                     <option value="medium">Medium</option>
                                     <option value="hard">Hard</option>
                                 </select>
+                        
                                 <button id="start-game" class="control-button start-button" disabled>Start Game</button>
-                                <button id="copy-url" class="control-button copy-button">Copy Game URL</button>
+                                <button id="copy-url" class="control-button copy-button" disabled>Copy Game URL</button>
                             </div>
                         </div>
                     </div>
