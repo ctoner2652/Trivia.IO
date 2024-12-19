@@ -7,7 +7,8 @@ const session = require('express-session');
 const sharedSession = require('express-socket.io-session');
 const { v4: uuidv4 } = require('uuid'); 
 const axios = require('axios');
-const he = require('he'); 
+const he = require('he');
+const inactiveUsers = {}; 
 const users = {};
 const helmet = require('helmet');
 const MongoStore = require('connect-mongo');
@@ -236,7 +237,7 @@ io.on('connection', (socket) => {
     }
 
     users[socket.id] = username;
-    handleReconnect(socket);
+
     socket.on('join-game', (avatar, targetLobbyId) => {
         handleJoinGame(socket, avatar, targetLobbyId);
     });
@@ -393,9 +394,11 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
         sendQuestion(lobby);
         io.to(lobby.id).emit('game-started');
     }
+    resetInactivityTimer(socket);
 }
 
 function handleSubmitAnswer(socket, answer) {
+    resetInactivityTimer(socket);
     const username = users[socket.id]; 
     if (!username) return;
 
@@ -464,122 +467,162 @@ function handleDisconnect(socket) {
     );
 
     if (lobby) {
-        disconnectedUsers[socket.id] = {
-            timeout: setTimeout(() => {
-                
-                lobby.players = lobby.players.filter(
-                    (player) => player.socketId !== socket.id
-                );
+        if (lobby.isCustom) {
+            // Custom Game: Allow a 10-second grace period for reconnection
+            disconnectedUsers[socket.id] = {
+                timeout: setTimeout(() => {
+                    // Remove the player if they don't reconnect within the grace period
+                    lobby.players = lobby.players.filter(
+                        (player) => player.socketId !== socket.id
+                    );
 
-                const leaveMessage = `${username} has left the lobby!`;
-                lobby.chatLog.push({
-                    name: 'System',
-                    message: leaveMessage,
-                    type: 'leave',
-                });
+                    const leaveMessage = `${username} has left the lobby!`;
+                    lobby.chatLog.push({
+                        name: 'System',
+                        message: leaveMessage,
+                        type: 'leave',
+                    });
 
-                io.to(lobby.id).emit('received-message', {
-                    name: 'System',
-                    message: leaveMessage,
-                    type: 'join',
-                });
+                    io.to(lobby.id).emit('received-message', {
+                        name: 'System',
+                        message: leaveMessage,
+                        type: 'join',
+                    });
 
-                
-                if (lobby.host === socket.id) {
-                    if (lobby.players.length > 0) {
-                        const newHost = lobby.players[0];
-                        lobby.host = newHost.socketId;
+                    // Handle host reassignment or lobby deletion
+                    if (lobby.host === socket.id) {
+                        if (lobby.players.length > 0) {
+                            const newHost = lobby.players[0];
+                            lobby.host = newHost.socketId;
 
-                        console.log(`Host left. New host assigned: ${newHost.username}`);
-                        io.to(lobby.id).emit('received-message', {
-                            name: 'System',
-                            message: `${username} has disconnected. ${newHost.username} has been promoted to leader`,
-                            type: 'promoted',
-                        });
-                        lobby.chatLog.push({
-                            name: 'System',
-                            message: `${username} has disconnected. ${newHost.username} has been promoted to leader`,
-                            type: 'promoted',
-                        });
+                            console.log(`Host left. New host assigned: ${newHost.username}`);
+                            io.to(lobby.id).emit('received-message', {
+                                name: 'System',
+                                message: `${username} has disconnected. ${newHost.username} has been promoted to leader`,
+                                type: 'promoted',
+                            });
+                            lobby.chatLog.push({
+                                name: 'System',
+                                message: `${username} has disconnected. ${newHost.username} has been promoted to leader`,
+                                type: 'promoted',
+                            });
 
-                        lobby.players.forEach((player) => {
-                            const isHost = player.socketId === lobby.host;
-                            io.to(player.socketId).emit('host-status', { isHost });
-                        });
-                    } else {
-                        console.log(`Lobby ${lobby.id} is empty. Deleting the lobby.`);
-                        clearLobbyTimers(lobby);
-                        lobbies.splice(lobbies.indexOf(lobby), 1);
+                            lobby.players.forEach((player) => {
+                                const isHost = player.socketId === lobby.host;
+                                io.to(player.socketId).emit('host-status', { isHost });
+                            });
+                        } else {
+                            console.log(`Lobby ${lobby.id} is empty. Deleting the lobby.`);
+                            clearLobbyTimers(lobby);
+                            lobbies.splice(lobbies.indexOf(lobby), 1);
+                        }
                     }
-                }
 
-                if (lobby.players.length === 0) {
-                    clearLobbyTimers(lobby);
-                    console.log(`Deleted empty lobby: ${lobby.id}`);
-                    lobbies.splice(lobbies.indexOf(lobby), 1);
+                    if (lobby.players.length === 0) {
+                        clearLobbyTimers(lobby);
+                        console.log(`Deleted empty lobby: ${lobby.id}`);
+                        lobbies.splice(lobbies.indexOf(lobby), 1);
+                    } else {
+                        broadcastLeaderboard(lobby);
+                    }
+
+                    updatePlayerList(lobby);
+                }, 10000), // 10 seconds for reconnection
+                username: username,
+                lobbyId: lobby.id,
+            };
+
+            console.log(`User ${username} disconnected. Waiting for reconnection in a custom game...`);
+        } else {
+            // Public Game: Disconnect immediately
+            lobby.players = lobby.players.filter(
+                (player) => player.socketId !== socket.id
+            );
+
+            const leaveMessage = `${username} has left the lobby!`;
+            lobby.chatLog.push({
+                name: 'System',
+                message: leaveMessage,
+                type: 'leave',
+            });
+
+            io.to(lobby.id).emit('received-message', {
+                name: 'System',
+                message: leaveMessage,
+                type: 'join',
+            });
+
+            // Handle host reassignment or lobby deletion
+            if (lobby.host === socket.id) {
+                if (lobby.players.length > 0) {
+                    const newHost = lobby.players[0];
+                    lobby.host = newHost.socketId;
+
+                    console.log(`Host left. New host assigned: ${newHost.username}`);
+                    io.to(lobby.id).emit('received-message', {
+                        name: 'System',
+                        message: `${username} has disconnected. ${newHost.username} has been promoted to leader`,
+                        type: 'promoted',
+                    });
+                    lobby.chatLog.push({
+                        name: 'System',
+                        message: `${username} has disconnected. ${newHost.username} has been promoted to leader`,
+                        type: 'promoted',
+                    });
+
+                    lobby.players.forEach((player) => {
+                        const isHost = player.socketId === lobby.host;
+                        io.to(player.socketId).emit('host-status', { isHost });
+                    });
                 } else {
-                    broadcastLeaderboard(lobby);
+                    console.log(`Lobby ${lobby.id} is empty. Deleting the lobby.`);
+                    clearLobbyTimers(lobby);
+                    lobbies.splice(lobbies.indexOf(lobby), 1);
                 }
+            }
 
-                updatePlayerList(lobby);
-            }, 5000), 
-            username: username,
-            lobbyId: lobby.id,
-        };
+            if (lobby.players.length === 0) {
+                clearLobbyTimers(lobby);
+                console.log(`Deleted empty lobby: ${lobby.id}`);
+                lobbies.splice(lobbies.indexOf(lobby), 1);
+            } else {
+                broadcastLeaderboard(lobby);
+            }
 
-        console.log(`User ${username} disconnected. Waiting for reconnection...`);
+            updatePlayerList(lobby);
+        }
+        if(socket.request.session){
+            console.log(`Destroyed ${socket.request.session.username}'s username in session`);
+            socket.request.session.username = null;
+            socket.request.session.joinedCustomGame = null;
+        }
     }
-
-    // if (socket.request.session) {
-    //     socket.request.session.username = null;
-    //     socket.request.session.leftLobby = true;
-    //     socket.request.session.save((err) => {
-    //         if (err) {
-    //             console.error('Error clearing username from session:', err);
-    //         } else {
-    //             console.log(`${username}'s username cleared from session.`);
-    //         }
-    //     });
-    // }
-
     delete users[socket.id];
 }
 
-function handleReconnect(socket) {
-    const username = socket.request.session.username;
-
-    if (disconnectedUsers[socket.id]) {
-        clearTimeout(disconnectedUsers[socket.id].timeout);
-        delete disconnectedUsers[socket.id];
-        console.log(`User ${username} successfully reconnected.`);
-
-        const lobby = lobbies.find(lobby =>
-            lobby.players.some(player => player.username === username)
-        );
-
-        if (lobby) {
-            socket.join(lobby.id);
-            console.log(`${username} rejoined lobby: ${lobby.id}`);
-            
-            socket.emit('sync-lobby', {
-                chatLog: lobby.chatLog,
-                scores: lobby.scores,
-                avatars: lobby.avatars,
-                currentQuestion: lobby.currentQuestion,
-                timeLeft: lobby.timeLeft,
-                currentQuestionNumber: lobby.currentQuestionNumber,
-                totalQuestions: lobby.totalQuestions,
-            });
-
-            broadcastLeaderboard(lobby);
-        } else {
-            console.error(`No lobby found for reconnected user: ${username}`);
-        }
+function resetInactivityTimer(socket) {
+    const username = users[socket.id];
+    if (!username) return;
+    const lobby = lobbies.find((lobby) =>
+        lobby.players.some((player) => player.socketId === socket.id)
+    );
+    if (inactiveUsers[socket.id]) {
+        clearTimeout(inactiveUsers[socket.id]);
     }
+    if(lobby.isCustom && !lobby.gameInProgress){
+        return;
+    }
+    inactiveUsers[socket.id] = setTimeout(() => {
+        console.log(`User ${username} has been kicked for inactivity.`);
+        socket.emit('inactive-kick', 'You have been disconnected due to inactivity.');
+        handleDisconnect(socket); 
+    }, 60000); // 60 seconds of inactivity
+    
 }
 
 
 function handleSendMessage(socket, message) {
+    resetInactivityTimer(socket);
     const username = users[socket.id];
     console.log('Sent message:', message);
     const lobby = lobbies.find((lobby) =>
@@ -879,9 +922,14 @@ app.get('/game/:lobbyId', (req, res) => {
     });
     if (!req.session.username) {
         console.log(`No username found. Rendering home page with lobby ID: ${lobbyId}`);
+        req.session.joinedCustomGame = true;
         return res.render('home', { username: null, lobbyId });
     }
-
+    if(!req.session.joinedCustomGame){
+        console.log(`Have not joined game properly. Rendering home page with lobby ID: ${lobbyId}`);
+        req.session.joinedCustomGame = true;
+        return res.render('home', { username: null, lobbyId });
+    }
     const lobby = lobbies.find((l) => l.id === lobbyId);
 
     if (!lobby) {
@@ -889,6 +937,7 @@ app.get('/game/:lobbyId', (req, res) => {
         return res.redirect('/game'); 
     }
     console.log(`Rendering game page for lobby: ${lobbyId} with username: ${req.session.username}`);
+    req.session.joinedCustomGame = false;
     res.render('game', { username: req.session.username, lobbyId });
 });
 
@@ -908,7 +957,7 @@ app.post('/create-custom-game', (req, res) => {
     }
 
     req.session.username = name.trim().substring(0, 12);
-
+    req.session.joinedCustomGame = true;
     
     const lobbyId = `Lobby-${uuidv4()}`;
     const lobby = {

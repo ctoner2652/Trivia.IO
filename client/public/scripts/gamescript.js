@@ -44,6 +44,11 @@ const categories = [
     { id: "32", name: "Entertainment: Cartoon & Animations" } 
 ];
 
+socket.on('inactive-kick', (message) => {
+    alert(message);
+    window.location.href = '/'; 
+});
+
 function updateAppHeight() {
     const appHeight = window.innerHeight;
     document.documentElement.style.setProperty('--vh', `${appHeight}px`);
