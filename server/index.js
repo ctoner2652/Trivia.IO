@@ -330,6 +330,7 @@ function handleJoinGame(socket, avatar, targetLobbyId = null) {
             questionTimeout: null,
             isCustom: !!targetLobbyId, 
             triviaQuestions: [],
+            isCustom: false,
         };
 
         lobbies.push(lobby);
@@ -908,7 +909,7 @@ app.get('/game', (req, res) => {
         console.log('No username found. Redirecting to home page.');
         return res.render('home', { username: null, lobbyId: null });
     }
-
+    req.session.validSession = false;
     console.log(`Rendering public game for username: ${req.session.username}`);
     res.render('game', { username: req.session.username, lobbyId: null });
 });
