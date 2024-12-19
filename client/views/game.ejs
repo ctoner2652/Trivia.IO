@@ -172,13 +172,19 @@
     margin-left: auto;
     contain: layout; 
     will-change: transform;
-    overflow-y: auto;
 }
 #chat-input{
     padding-right: 60px; 
 }
 #question{
     margin-top: 5rem;
+}
+#top-bar{
+    margin-bottom: 0.2rem;
+}
+.row{
+    --bs-gutter-x: 0.2rem;
+    align-content: flex-start;
 }
 @media (max-width: 768px) {
     #question{
@@ -196,7 +202,6 @@
     #top-bar{
     border-radius: 0px;
     margin-top: 0;
-    margin-bottom: 0.2rem;
     }
     #leaderboard-container,
     #chat-container {
@@ -223,9 +228,16 @@
     min-height: 0; 
 }
     .container-fluids {
+        width: 100%;
         height: 100%;
         display: flex;
         flex-direction: column;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    .container-fluids.main-container{
+        max-width: 100%;
+        height: 100%;
         padding-left: 0;
         padding-right: 0;
     }
@@ -285,7 +297,7 @@
             </div>
         </div> 
         
-        <div class="container-fluids m-0 p-0 vh-100">
+        <div class="container-fluids m-0 p-0 vh-100" style="overflow: hidden;">
             <div class="row h-100">
                 <div class="col-md-2 col-5 order-2 order-md-1 m-0">
                     <div id="leaderboard-container" class="rounded d-flex flex-column">
