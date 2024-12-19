@@ -883,7 +883,7 @@ app.post('/game', (req, res) => {
         return res.redirect('/');
     }
     req.session.username = name.trim().substring(0, 12);
-
+    req.session.validSession = true;
     if (lobbyId) {
         req.session.save((err) => {
             if (err) {
@@ -915,18 +915,14 @@ app.get('/game', (req, res) => {
 
 app.get('/game/:lobbyId', (req, res) => {
     const { lobbyId } = req.params;
-
-    console.log('Session state on /game/:lobbyId:', {
-        username: req.session.username,
-        lobbyId,
-    });
-    if (!req.session.username) {
-        console.log(`No username found. Rendering home page with lobby ID: ${lobbyId}`);
-        req.session.joinedCustomGame = true;
+    if (!req.session.validSession) {
+        console.log(`Invalid session. Redirecting to main menu for lobby ID: ${lobbyId}`);
+        req.session.username = null; 
         return res.render('home', { username: null, lobbyId });
     }
-    if(!req.session.joinedCustomGame){
-        console.log(`Have not joined game properly. Rendering home page with lobby ID: ${lobbyId}`);
+
+    if (!req.session.username) {
+        console.log(`No username found. Rendering home page with lobby ID: ${lobbyId}`);
         req.session.joinedCustomGame = true;
         return res.render('home', { username: null, lobbyId });
     }
@@ -934,10 +930,10 @@ app.get('/game/:lobbyId', (req, res) => {
 
     if (!lobby) {
         console.log(`Lobby ${lobbyId} not found. Redirecting to public game.`);
-        return res.redirect('/game'); 
+        return res.redirect('/'); 
     }
     console.log(`Rendering game page for lobby: ${lobbyId} with username: ${req.session.username}`);
-    req.session.joinedCustomGame = false;
+    req.session.validSession = false;
     res.render('game', { username: req.session.username, lobbyId });
 });
 
@@ -955,9 +951,8 @@ app.post('/create-custom-game', (req, res) => {
     if (!name || name.trim() === '') {
         return res.redirect('/');
     }
-
+    req.session.validSession = true;
     req.session.username = name.trim().substring(0, 12);
-    req.session.joinedCustomGame = true;
     
     const lobbyId = `Lobby-${uuidv4()}`;
     const lobby = {
@@ -988,7 +983,6 @@ app.post('/create-custom-game', (req, res) => {
         res.redirect(`/game/${lobbyId}`);
     });
 });
-
 
 
 
