@@ -258,7 +258,6 @@ io.on('connection', (socket) => {
             socket.emit('error-message', 'You need at least 2 players to start the game.');
             return;
         }
-    ``
         
         lobby.totalQuestions = questionCount;
         lobby.selectedDifficulty = selectedDifficulty;
