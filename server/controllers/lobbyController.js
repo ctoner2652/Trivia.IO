@@ -1,7 +1,9 @@
 const sanitizeHtml = require('sanitize-html');
 const { v4: uuidv4 } = require('uuid');
 const Question = require('../models/Question');
-
+const leoProfanity = require('leo-profanity');
+leoProfanity.loadDictionary();
+leoProfanity.remove([ 'fuck', 'shit', 'damn', 'dammit', 'hell', 'piss', 'ass', 'dick', 'cunt', 'bitch' ]);
 console.log('testing');
 
 const lobbies = [];
@@ -518,28 +520,33 @@ function resetInactivityTimer(io, socket) {
 
 
 function handleSendMessage(io, socket, message) {
-    try{
+  try {
     resetInactivityTimer(io, socket);
+
     const username = users[socket.id];
-    console.log('Sent message:', message);
-    const lobby = lobbies.find((lobby) =>
-        lobby.players.some((player) => player.socketId === socket.id)
+    if (!username) return;
+
+    const lobby = lobbies.find(l =>
+      l.players.some(p => p.socketId === socket.id)
     );
-
     if (!lobby) {
-        console.error(`Send message failed: No lobby found for user: ${username}`);
-        return;
+      console.error(`Send message failed: No lobby for ${username}`);
+      return;
     }
+    const sanitized = sanitizeHtml(message, {
+      allowedTags: [], allowedAttributes: {}
+    }).trim();
+    if (!sanitized) return;
 
-    const sanitizedMessage = sanitizeHtml(message, { allowedTags: [], allowedAttributes: {} });
-    if (sanitizedMessage.trim() === '') return;
+    const clean = leoProfanity.clean(sanitized);
 
-    const chatMessage = { name: username, message: sanitizedMessage, type: 'regular' };
-    lobby.chatLog.push(chatMessage);
-    io.to(lobby.id).emit('received-message', chatMessage);
-    }catch(err){
-        console.log('Error handling send message', err)
-    }
+    const chatMsg = { name: username, message: clean, type: 'regular' };
+    lobby.chatLog.push(chatMsg);
+    io.to(lobby.id).emit('received-message', chatMsg);
+
+  } catch (err) {
+    console.log('Error handling send message', err);
+  }
 }
 
 function broadcastLeaderboard(io, lobby) {
