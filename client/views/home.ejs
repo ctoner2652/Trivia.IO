@@ -39,7 +39,17 @@ background-image: url("/images/wallpapertile.png");
 background-repeat: repeat; 
 font-family: Arial, sans-serif;
 }
-
+.arrow{
+font-size: 1.2rem;
+cursor: pointer;
+user-select: none;          
+-webkit-user-select: none;  
+-moz-user-select: none;     
+-ms-user-select: none;   
+}
+.arrow:hover {
+  opacity: 0.8;
+}
 .container {
 width: calc(25rem + 0.3vw); 
 padding: 15px; 
@@ -268,8 +278,9 @@ transform: translateY(-10px);
         clothesType: "Hoodie",
     };
 
-    const avatarConfig = JSON.parse(localStorage.getItem("avatarConfig")) || { ...defaultAvatarConfig };
-
+    const saved = JSON.parse(localStorage.getItem("avatarConfig"));
+    let avatarConfig;
+    
     const topTypes = [
         "NoHair",
         "ShortHairShortCurly",
@@ -294,22 +305,32 @@ transform: translateY(-10px);
         "CollarSweater",
     ];
 
+    if (saved && storedAvatar) {
+    avatarConfig = saved;
+    avatarImg.src = storedAvatar;    
+    } else {
+    avatarConfig = {
+      topType:    topTypes[Math.floor(Math.random() * topTypes.length)],
+      eyeType:    eyeTypes[Math.floor(Math.random() * eyeTypes.length)],
+      clothesType:clothesTypes[Math.floor(Math.random() * clothesTypes.length)],
+    };
+    avatarImg.src = buildUrl(avatarConfig);
+    } 
+
     let currentTopIndex = topTypes.indexOf(avatarConfig.topType);
     let currentEyeIndex = eyeTypes.indexOf(avatarConfig.eyeType);
     let currentClothesIndex = clothesTypes.indexOf(avatarConfig.clothesType);
 
-    if (storedAvatar) {
-        avatarImg.src = storedAvatar;
-    } else {
-        
-        updateAvatar();
+    function buildUrl(cfg) {
+    return `https://avataaars.io/?avatarStyle=Circle`
+         + `&topType=${cfg.topType}`
+         + `&eyeType=${cfg.eyeType}`
+         + `&clotheType=${cfg.clothesType}`;
     }
-    
+
     function updateAvatar() {
         const avatarURL = `https://avataaars.io/?avatarStyle=Circle&topType=${avatarConfig.topType}&eyeType=${avatarConfig.eyeType}&clotheType=${avatarConfig.clothesType}`;
         avatarImg.src = avatarURL;
-
-        
         localStorage.setItem("avatarConfig", JSON.stringify(avatarConfig));
     }
     function attachAvatarEventListeners() {
@@ -361,7 +382,6 @@ transform: translateY(-10px);
             updateAvatar();
         });
     }
-    updateAvatar();
     attachAvatarEventListeners();
 });
     </script>
